@@ -94,7 +94,7 @@ const firebaseConfig = {
             const [stockData, setStockData] = useState(null);
             const [stockLoading, setStockLoading] = useState(false);
             const [stockError, setStockError] = useState(null);
-            const [finnhubApiKey, setFinnhubApiKey] = useState(localStorage.getItem('finnhubApiKey') || '');
+            const [finnhubApiKey, setFinnhubApiKey] = useState('');
 
             useEffect(() => {
                 if (!auth) return;
@@ -116,6 +116,7 @@ const firebaseConfig = {
                             setNextId(data.nextId || 1);
                             setCollapsedCategories(data.collapsedCategories || {});
                             setDarkMode(data.darkMode || false);
+                            setFinnhubApiKey(data.finnhubApiKey || '');
                         }
                     });
                 return () => unsubscribe();
@@ -129,7 +130,7 @@ const firebaseConfig = {
                         isSavingRef.current = true;
                         setSyncStatus('syncing');
                         db.collection('users').doc(auth.currentUser.uid).set({
-                            notes, colorLabels, nextId, collapsedCategories, darkMode,
+                            notes, colorLabels, nextId, collapsedCategories, darkMode, finnhubApiKey,
                             updatedAt: firebase.firestore.FieldValue.serverTimestamp()
                         }).then(() => {
                             setSyncStatus('synced');
@@ -145,13 +146,13 @@ const firebaseConfig = {
                         if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
                     };
                 }
-            }, [notes, colorLabels, nextId, collapsedCategories, darkMode]);
+            }, [notes, colorLabels, nextId, collapsedCategories, darkMode, finnhubApiKey]);
 
             useEffect(() => {
                 const handleBeforeUnload = (e) => {
                     if (currentUser && auth.currentUser && db) {
                         db.collection('users').doc(auth.currentUser.uid).set({
-                            notes, colorLabels, nextId, collapsedCategories, darkMode,
+                            notes, colorLabels, nextId, collapsedCategories, darkMode, finnhubApiKey,
                             updatedAt: firebase.firestore.FieldValue.serverTimestamp()
                         });
                     }
@@ -159,7 +160,7 @@ const firebaseConfig = {
 
                 window.addEventListener('beforeunload', handleBeforeUnload);
                 return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-            }, [currentUser, notes, colorLabels, nextId, collapsedCategories, darkMode]);
+            }, [currentUser, notes, colorLabels, nextId, collapsedCategories, darkMode, finnhubApiKey]);
 
             const handleLogin = async (e) => {
                 e.preventDefault();
@@ -198,7 +199,7 @@ const firebaseConfig = {
             const syncNow = () => {
                 if (currentUser && auth.currentUser && db) {
                     db.collection('users').doc(auth.currentUser.uid).set({
-                        notes, colorLabels, nextId, collapsedCategories, darkMode,
+                        notes, colorLabels, nextId, collapsedCategories, darkMode, finnhubApiKey,
                         updatedAt: firebase.firestore.FieldValue.serverTimestamp()
                     });
                 }
@@ -514,7 +515,6 @@ const firebaseConfig = {
                                             value={finnhubApiKey}
                                             onChange={(e) => {
                                                 setFinnhubApiKey(e.target.value);
-                                                localStorage.setItem('finnhubApiKey', e.target.value);
                                             }}
                                             placeholder="Finnhub API Key"
                                             className={`px-4 py-3 rounded-lg border-2 ${darkMode ? 'bg-gray-800 text-white border-gray-600' : 'bg-white text-gray-800 border-gray-300'} focus:ring-2 focus:ring-blue-500 outline-none`}
