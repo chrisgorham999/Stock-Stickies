@@ -220,12 +220,14 @@ const firebaseConfig = {
             const addToWatchList = () => {
                 const ticker = newWatchTicker.trim().toUpperCase();
                 if (ticker && !watchList.includes(ticker)) {
+                    isSavingRef.current = true;
                     setWatchList([...watchList, ticker]);
                     setNewWatchTicker('');
                 }
             };
 
             const removeFromWatchList = (ticker) => {
+                isSavingRef.current = true;
                 setWatchList(watchList.filter(t => t !== ticker));
             };
 
