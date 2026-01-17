@@ -268,22 +268,23 @@ const firebaseConfig = {
                             const meta = result.meta;
 
                             // Fetch fundamental data (P/E, P/B, Dividend)
-                            const quoteSummaryUrl = encodeURIComponent(`https://query1.finance.yahoo.com/v10/finance/quoteSummary/${expandedNote.title}?modules=summaryDetail,defaultKeyStatistics`);
+                            const quoteUrl = encodeURIComponent(`https://query2.finance.yahoo.com/v7/finance/quote?symbols=${expandedNote.title}`);
                             let fundamentals = {};
 
                             try {
-                                const fundamentalsResponse = await fetch(proxyUrl + quoteSummaryUrl);
+                                const fundamentalsResponse = await fetch(proxyUrl + quoteUrl);
                                 if (fundamentalsResponse.ok) {
                                     const fundamentalsData = await fundamentalsResponse.json();
-                                    const summaryDetail = fundamentalsData.quoteSummary?.result?.[0]?.summaryDetail;
-                                    const keyStats = fundamentalsData.quoteSummary?.result?.[0]?.defaultKeyStatistics;
+                                    const quoteData = fundamentalsData.quoteResponse?.result?.[0];
 
-                                    fundamentals = {
-                                        peRatio: summaryDetail?.trailingPE?.raw || keyStats?.trailingPE?.raw,
-                                        pbRatio: keyStats?.priceToBook?.raw,
-                                        dividendYield: summaryDetail?.dividendYield?.raw,
-                                        dividendRate: summaryDetail?.dividendRate?.raw
-                                    };
+                                    if (quoteData) {
+                                        fundamentals = {
+                                            peRatio: quoteData.trailingPE,
+                                            pbRatio: quoteData.priceToBook,
+                                            dividendYield: quoteData.dividendYield,
+                                            dividendRate: quoteData.trailingAnnualDividendRate
+                                        };
+                                    }
                                 }
                             } catch (err) {
                                 console.log('Could not fetch fundamentals:', err);
