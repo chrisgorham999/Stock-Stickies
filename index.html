@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Red's Stickies</title>
+    <title>Stock Stickies</title>
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
@@ -77,14 +77,14 @@ const firebaseConfig = {
                 'bg-pink-200': 'Important',
                 'bg-blue-200': 'Tasks',
                 'bg-green-200': 'Done',
-                'bg-purple-200': 'Questions',
+                'bg-red-200': 'Questions',
                 'bg-orange-200': 'Urgent'
             });
             const [editingLabel, setEditingLabel] = useState(null);
             const [tempLabel, setTempLabel] = useState('');
             const [collapsedCategories, setCollapsedCategories] = useState({});
 
-            const colors = ['bg-yellow-200', 'bg-pink-200', 'bg-blue-200', 'bg-green-200', 'bg-purple-200', 'bg-orange-200'];
+            const colors = ['bg-yellow-200', 'bg-pink-200', 'bg-blue-200', 'bg-green-200', 'bg-red-200', 'bg-orange-200'];
             const unclassifiedColor = 'bg-gray-300';
 
             useEffect(() => {
