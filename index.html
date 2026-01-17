@@ -129,12 +129,26 @@ const firebaseConfig = {
                             setSyncStatus('offline');
                             setIsSaving(false);
                         });
-                    }, 3000);
+                    }, 10000);
 
                     setSaveTimeout(timeout);
                     return () => clearTimeout(timeout);
                 }
             }, [notes, colorLabels, nextId, collapsedCategories, darkMode]);
+
+            useEffect(() => {
+                const handleBeforeUnload = (e) => {
+                    if (currentUser && auth.currentUser && db) {
+                        db.collection('users').doc(auth.currentUser.uid).set({
+                            notes, colorLabels, nextId, collapsedCategories, darkMode,
+                            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                        });
+                    }
+                };
+
+                window.addEventListener('beforeunload', handleBeforeUnload);
+                return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+            }, [currentUser, notes, colorLabels, nextId, collapsedCategories, darkMode]);
 
             const handleLogin = async (e) => {
                 e.preventDefault();
@@ -166,7 +180,17 @@ const firebaseConfig = {
                 setNotes(notes.map(n => n.id === noteId ? {...n, title: title.toUpperCase()} : n));
             };
 
+            const syncNow = () => {
+                if (currentUser && auth.currentUser && db) {
+                    db.collection('users').doc(auth.currentUser.uid).set({
+                        notes, colorLabels, nextId, collapsedCategories, darkMode,
+                        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                    });
+                }
+            };
+
             const handleLogout = async () => {
+                syncNow();
                 if (auth) await auth.signOut();
                 setCurrentUser(null);
                 setNotes([]);
@@ -201,6 +225,12 @@ const firebaseConfig = {
 
             const classifyNote = (noteId, color) => {
                 setNotes(notes.map(n => n.id === noteId ? {...n, color, classified: true} : n));
+            };
+
+            const deleteNote = (noteId) => {
+                if (window.confirm('Are you sure you want to delete this note?')) {
+                    setNotes(notes.filter(n => n.id !== noteId));
+                }
             };
 
             return (
@@ -243,7 +273,7 @@ const firebaseConfig = {
                                     {unclassifiedNotes.map(note => (
                                         <div key={note.id} className={`${unclassifiedColor} p-6 rounded-lg shadow-lg relative border-4 border-yellow-500 animate-pulse`} style={{minHeight: '200px'}}>
                                             <div className="absolute top-2 right-2">
-                                                <button onClick={() => setNotes(notes.filter(n => n.id !== note.id))} className="text-gray-600 hover:text-gray-800"><X size={18}/></button>
+                                                <button onClick={() => deleteNote(note.id)} className="text-gray-600 hover:text-gray-800"><X size={18}/></button>
                                             </div>
                                             <div className="mb-4">
                                                 <p className="text-sm font-bold text-gray-700 mb-2">Select Category:</p>
@@ -286,7 +316,7 @@ const firebaseConfig = {
                                                         <select value={note.color} onChange={(e) => setNotes(notes.map(n => n.id === note.id ? {...n, color: e.target.value} : n))} className="bg-white bg-opacity-70 border rounded px-2 py-1 text-xs">
                                                             {colors.map(c => <option key={c} value={c}>{colorLabels[c]}</option>)}
                                                         </select>
-                                                        <button onClick={() => setNotes(notes.filter(n => n.id !== note.id))} className="text-gray-600 hover:text-gray-800"><X size={18}/></button>
+                                                        <button onClick={() => deleteNote(note.id)} className="text-gray-600 hover:text-gray-800"><X size={18}/></button>
                                                     </div>
                                                     <input
                                                         type="text"
