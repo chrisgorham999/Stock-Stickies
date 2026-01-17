@@ -70,7 +70,6 @@ const firebaseConfig = {
             const [syncStatus, setSyncStatus] = useState('synced');
             const [isSaving, setIsSaving] = useState(false);
             const [saveTimeout, setSaveTimeout] = useState(null);
-            
             const [notes, setNotes] = useState([]);
             const [nextId, setNextId] = useState(1);
             const [colorLabels, setColorLabels] = useState({
@@ -95,9 +94,6 @@ const firebaseConfig = {
                 });
                 return () => unsubscribe();
             }, []);
-
-            const [isSaving, setIsSaving] = useState(false);
-            const [saveTimeout, setSaveTimeout] = useState(null);
 
             useEffect(() => {
                 if (!currentUser || !db || !auth.currentUser) return;
