@@ -58,6 +58,7 @@ const firebaseConfig = {
         const ChevronRight = ({ size = 24 }) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="9 18 15 12 9 6"/></svg>;
         const Cloud = ({ size = 24 }) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/></svg>;
         const CloudOff = ({ size = 24 }) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22.61 16.95A5 5 0 0 0 18 10h-1.26a8 8 0 0 0-7.05-6M5 5a8 8 0 0 0 4 15h9a5 5 0 0 0 1.7-.3"/><line x1="1" y1="1" x2="23" y2="23"/></svg>;
+        const Maximize = ({ size = 24 }) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>;
 
         function StickyNotesApp() {
             const [currentUser, setCurrentUser] = useState(null);
@@ -84,6 +85,7 @@ const firebaseConfig = {
             const [editingLabel, setEditingLabel] = useState(null);
             const [tempLabel, setTempLabel] = useState('');
             const [collapsedCategories, setCollapsedCategories] = useState({});
+            const [expandedNote, setExpandedNote] = useState(null);
 
             const colors = ['bg-yellow-200', 'bg-pink-200', 'bg-blue-200', 'bg-green-200', 'bg-red-300', 'bg-orange-200'];
             const unclassifiedColor = 'bg-gray-300';
@@ -235,6 +237,50 @@ const firebaseConfig = {
             };
 
             return (
+                <>
+                {expandedNote && (
+                    <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+                        <div className="bg-white w-full h-full max-w-[95vw] max-h-[95vh] rounded-lg shadow-2xl overflow-hidden flex flex-col">
+                            <div className="flex justify-between items-center p-4 border-b">
+                                <h2 className="text-2xl font-bold text-gray-800">{expandedNote.title || 'Untitled Note'}</h2>
+                                <button onClick={() => setExpandedNote(null)} className="text-gray-600 hover:text-gray-800">
+                                    <X size={24}/>
+                                </button>
+                            </div>
+                            <div className="flex flex-1 overflow-hidden">
+                                <div className={`w-1/2 p-6 ${expandedNote.color} overflow-auto`}>
+                                    <input
+                                        type="text"
+                                        value={expandedNote.title || ''}
+                                        onChange={(e) => updateNoteTitle(expandedNote.id, e.target.value)}
+                                        placeholder="TICKER"
+                                        className="w-full bg-transparent border-none outline-none text-gray-800 placeholder-gray-500 font-bold text-3xl mb-4 uppercase"
+                                        style={{letterSpacing: '0.05em'}}
+                                    />
+                                    <textarea
+                                        value={expandedNote.text}
+                                        onChange={(e) => setNotes(notes.map(n => n.id === expandedNote.id ? {...n, text: e.target.value} : n))}
+                                        placeholder="Type here..."
+                                        className="w-full h-full bg-transparent border-none outline-none resize-none text-gray-800 placeholder-gray-500 text-lg"
+                                    />
+                                </div>
+                                <div className="w-1/2 bg-white overflow-hidden">
+                                    {expandedNote.title ? (
+                                        <iframe
+                                            src={`https://finance.yahoo.com/chart/${expandedNote.title}`}
+                                            className="w-full h-full border-none"
+                                            title={`${expandedNote.title} Stock Chart`}
+                                        />
+                                    ) : (
+                                        <div className="flex items-center justify-center h-full text-gray-500">
+                                            <p>Enter a ticker symbol to view chart</p>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
                 <div className={`min-h-screen p-8 ${darkMode ? 'bg-gradient-to-br from-gray-900 to-gray-800' : 'bg-gradient-to-br from-gray-100 to-gray-200'}`}>
                     <div className="max-w-7xl mx-auto">
                         <div className="flex items-center justify-between mb-4">
@@ -328,6 +374,13 @@ const firebaseConfig = {
                                                         style={{letterSpacing: '0.05em'}}
                                                     />
                                                     <textarea value={note.text} onChange={(e) => setNotes(notes.map(n => n.id === note.id ? {...n, text: e.target.value} : n))} placeholder="Type here..." className="w-full h-full bg-transparent border-none outline-none resize-none text-gray-800 placeholder-gray-500" style={{minHeight: '130px'}}/>
+                                                    <button
+                                                        onClick={() => setExpandedNote(note)}
+                                                        className="absolute bottom-2 right-2 bg-white bg-opacity-70 hover:bg-opacity-100 p-2 rounded-lg shadow transition-all"
+                                                        title="View with chart"
+                                                    >
+                                                        <Maximize size={16}/>
+                                                    </button>
                                                 </div>
                                             ))}
                                         </div>
@@ -338,6 +391,7 @@ const firebaseConfig = {
                         {!notes.length && <div className="text-center py-20"><p className={`text-xl ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>No notes yet. Click "New Note" to get started!</p></div>}
                     </div>
                 </div>
+                </>
             );
         }
 
