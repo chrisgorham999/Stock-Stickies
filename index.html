@@ -20,16 +20,15 @@
     <script type="text/babel">
         const { useState, useEffect } = React;
 
-// my credential from firebase
-const firebaseConfig = {
-  apiKey: "AIzaSyDoS1vAgMJGV6kwnb16XVUPLxxsH0iieCI",
-  authDomain: "red-s-stickies.firebaseapp.com",
-  projectId: "red-s-stickies",
-  storageBucket: "red-s-stickies.firebasestorage.app",
-  messagingSenderId: "896398882822",
-  appId: "1:896398882822:web:dcfc3217a949601916eb87"
-};
-
+        // 🔥 FIREBASE CONFIG - REPLACE WITH YOUR CREDENTIALS
+        const firebaseConfig = {
+            apiKey: "YOUR_API_KEY_HERE",
+            authDomain: "YOUR_AUTH_DOMAIN_HERE",
+            projectId: "YOUR_PROJECT_ID_HERE",
+            storageBucket: "YOUR_STORAGE_BUCKET_HERE",
+            messagingSenderId: "YOUR_MESSAGING_SENDER_ID_HERE",
+            appId: "YOUR_APP_ID_HERE"
+        };
 
         // Initialize Firebase
         let db = null;
@@ -67,6 +66,8 @@ const firebaseConfig = {
             const [isResettingPassword, setIsResettingPassword] = useState(false);
             const [resetSuccess, setResetSuccess] = useState(false);
             const [syncStatus, setSyncStatus] = useState('synced');
+            const [isSaving, setIsSaving] = useState(false);
+            const [saveTimeout, setSaveTimeout] = useState(null);
             
             const [notes, setNotes] = useState([]);
             const [nextId, setNextId] = useState(1);
@@ -93,11 +94,14 @@ const firebaseConfig = {
                 return () => unsubscribe();
             }, []);
 
+            const [isSaving, setIsSaving] = useState(false);
+            const [saveTimeout, setSaveTimeout] = useState(null);
+
             useEffect(() => {
                 if (!currentUser || !db || !auth.currentUser) return;
                 const unsubscribe = db.collection('users').doc(auth.currentUser.uid)
                     .onSnapshot((doc) => {
-                        if (doc.exists) {
+                        if (doc.exists && !isSaving) {
                             const data = doc.data();
                             setNotes(data.notes || []);
                             setColorLabels(data.colorLabels || colorLabels);
@@ -107,15 +111,29 @@ const firebaseConfig = {
                         }
                     });
                 return () => unsubscribe();
-            }, [currentUser]);
+            }, [currentUser, isSaving]);
 
             useEffect(() => {
                 if (currentUser && auth.currentUser && db) {
-                    setSyncStatus('syncing');
-                    db.collection('users').doc(auth.currentUser.uid).set({
-                        notes, colorLabels, nextId, collapsedCategories, darkMode,
-                        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-                    }).then(() => setSyncStatus('synced')).catch(() => setSyncStatus('offline'));
+                    if (saveTimeout) clearTimeout(saveTimeout);
+                    
+                    const timeout = setTimeout(() => {
+                        setIsSaving(true);
+                        setSyncStatus('syncing');
+                        db.collection('users').doc(auth.currentUser.uid).set({
+                            notes, colorLabels, nextId, collapsedCategories, darkMode,
+                            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                        }).then(() => {
+                            setSyncStatus('synced');
+                            setIsSaving(false);
+                        }).catch(() => {
+                            setSyncStatus('offline');
+                            setIsSaving(false);
+                        });
+                    }, 1000);
+                    
+                    setSaveTimeout(timeout);
+                    return () => clearTimeout(timeout);
                 }
             }, [notes, colorLabels, nextId, collapsedCategories, darkMode]);
 
