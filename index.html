@@ -293,6 +293,9 @@ const firebaseConfig = {
             useEffect(() => {
                 if (expandedNote?.title) {
                     fetchStockData(expandedNote.title);
+                } else {
+                    setStockData(null);
+                    setStockError(null);
                 }
             }, [expandedNote?.title]);
 
