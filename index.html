@@ -507,19 +507,21 @@ const firebaseConfig = {
                             </div>
                             <div className="flex gap-3 items-center">
                                 <button onClick={() => { setNotes([{id: nextId, title: '', text: '', color: UNCLASSIFIED_COLOR, classified: false}, ...notes]); setNextId(nextId + 1); }} className="flex items-center gap-2 bg-blue-500 hover:bg-blue-600 text-white px-6 py-3 rounded-lg shadow-lg"><Plus size={20}/>New Note</button>
-                                <div className="flex items-center gap-2">
-                                    <input
-                                        type="text"
-                                        value={finnhubApiKey}
-                                        onChange={(e) => {
-                                            setFinnhubApiKey(e.target.value);
-                                            localStorage.setItem('finnhubApiKey', e.target.value);
-                                        }}
-                                        placeholder="Finnhub API Key"
-                                        className={`px-4 py-3 rounded-lg border-2 ${darkMode ? 'bg-gray-800 text-white border-gray-600' : 'bg-white text-gray-800 border-gray-300'} focus:ring-2 focus:ring-blue-500 outline-none`}
-                                        style={{width: '200px'}}
-                                    />
-                                </div>
+                                {!finnhubApiKey && (
+                                    <div className="flex items-center gap-2">
+                                        <input
+                                            type="text"
+                                            value={finnhubApiKey}
+                                            onChange={(e) => {
+                                                setFinnhubApiKey(e.target.value);
+                                                localStorage.setItem('finnhubApiKey', e.target.value);
+                                            }}
+                                            placeholder="Finnhub API Key"
+                                            className={`px-4 py-3 rounded-lg border-2 ${darkMode ? 'bg-gray-800 text-white border-gray-600' : 'bg-white text-gray-800 border-gray-300'} focus:ring-2 focus:ring-blue-500 outline-none`}
+                                            style={{width: '200px'}}
+                                        />
+                                    </div>
+                                )}
                                 <button onClick={() => setDarkMode(!darkMode)} className="flex items-center gap-2 bg-gray-700 hover:bg-gray-800 text-white px-4 py-3 rounded-lg shadow-lg">{darkMode ? <Sun size={20}/> : <Moon size={20}/>}</button>
                                 <button onClick={handleLogout} className="flex items-center gap-2 bg-gray-500 hover:bg-gray-600 text-white px-6 py-3 rounded-lg shadow-lg"><LogOut size={20}/>Logout</button>
                             </div>
