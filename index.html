@@ -77,14 +77,14 @@ const firebaseConfig = {
                 'bg-pink-200': 'Important',
                 'bg-blue-200': 'Tasks',
                 'bg-green-200': 'Done',
-                'bg-red-200': 'Watch',
+                'bg-red-300': 'Watch',
                 'bg-orange-200': 'Urgent'
             });
             const [editingLabel, setEditingLabel] = useState(null);
             const [tempLabel, setTempLabel] = useState('');
             const [collapsedCategories, setCollapsedCategories] = useState({});
 
-            const colors = ['bg-yellow-200', 'bg-pink-200', 'bg-blue-200', 'bg-green-200', 'bg-red-200', 'bg-orange-200'];
+            const colors = ['bg-yellow-200', 'bg-pink-200', 'bg-blue-200', 'bg-green-200', 'bg-red-300', 'bg-orange-200'];
             const unclassifiedColor = 'bg-gray-300';
 
             useEffect(() => {
