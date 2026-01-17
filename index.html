@@ -83,7 +83,7 @@ const firebaseConfig = {
             const [resetSuccess, setResetSuccess] = useState(false);
             const [syncStatus, setSyncStatus] = useState('synced');
             const isSavingRef = useRef(false);
-            const [saveTimeout, setSaveTimeout] = useState(null);
+            const saveTimeoutRef = useRef(null);
             const [notes, setNotes] = useState([]);
             const [nextId, setNextId] = useState(1);
             const [colorLabels, setColorLabels] = useState(DEFAULT_COLOR_LABELS);
@@ -122,7 +122,7 @@ const firebaseConfig = {
 
             useEffect(() => {
                 if (currentUser && auth.currentUser && db) {
-                    if (saveTimeout) clearTimeout(saveTimeout);
+                    if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
 
                     const timeout = setTimeout(() => {
                         isSavingRef.current = true;
@@ -139,8 +139,10 @@ const firebaseConfig = {
                         });
                     }, 10000);
 
-                    setSaveTimeout(timeout);
-                    return () => clearTimeout(timeout);
+                    saveTimeoutRef.current = timeout;
+                    return () => {
+                        if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+                    };
                 }
             }, [notes, colorLabels, nextId, collapsedCategories, darkMode]);
 
@@ -218,6 +220,11 @@ const firebaseConfig = {
                 }
             };
 
+            // Compute derived state - must be before early return to follow Rules of Hooks
+            const unclassifiedNotes = useMemo(() => notes.filter(n => !n.classified), [notes]);
+            const classifiedNotes = useMemo(() => notes.filter(n => n.classified), [notes]);
+            const groupedNotes = useMemo(() => COLORS.reduce((acc, color) => { acc[color] = classifiedNotes.filter(n => n.color === color); return acc; }, {}), [classifiedNotes]);
+
             if (!currentUser) {
                 return (
                     <div className="min-h-screen bg-gradient-to-br from-blue-100 to-purple-100 flex items-center justify-center p-4">
@@ -240,10 +247,6 @@ const firebaseConfig = {
                     </div>
                 );
             }
-
-            const unclassifiedNotes = useMemo(() => notes.filter(n => !n.classified), [notes]);
-            const classifiedNotes = useMemo(() => notes.filter(n => n.classified), [notes]);
-            const groupedNotes = useMemo(() => COLORS.reduce((acc, color) => { acc[color] = classifiedNotes.filter(n => n.color === color); return acc; }, {}), [classifiedNotes]);
 
             useEffect(() => {
                 // Use a flag to prevent state updates on unmounted component
