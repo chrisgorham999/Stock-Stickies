@@ -545,7 +545,7 @@ const firebaseConfig = {
                     </div>
                 )}
                 <div className={`min-h-screen p-8 ${darkMode ? 'bg-gradient-to-br from-gray-900 to-gray-800' : 'bg-gradient-to-br from-gray-100 to-gray-200'}`}>
-                    <div className="flex gap-6 max-w-full mx-auto">
+                    <div className="flex gap-6 max-w-full mx-auto items-start">
                         <div className="flex-grow" style={{width: '80%'}}>
                         <div className="flex items-center justify-between mb-4">
                             <div>
@@ -681,7 +681,7 @@ const firebaseConfig = {
                         </div>
 
                         {/* Watch List Panel */}
-                        <div className={`w-80 flex-shrink-0 ${darkMode ? 'bg-gray-800' : 'bg-white'} rounded-lg shadow-lg sticky top-8 flex flex-col`} style={{maxHeight: 'calc(100vh - 4rem)'}}>
+                        <div className={`w-80 flex-shrink-0 ${darkMode ? 'bg-gray-800' : 'bg-white'} rounded-lg shadow-lg sticky flex flex-col`} style={{top: '2rem', maxHeight: 'calc(100vh - 4rem)'}}>
                             <div className="p-6 pb-4">
                                 <h2 className={`text-2xl font-bold mb-4 ${darkMode ? 'text-white' : 'text-gray-800'}`}>Watch List</h2>
 
