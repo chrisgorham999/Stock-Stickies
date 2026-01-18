@@ -333,7 +333,8 @@ const firebaseConfig = {
                                 volume: null, // Finnhub doesn't provide volume in quote endpoint
                                 marketCap: profileData.marketCapitalization ? profileData.marketCapitalization * 1e6 : null,
                                 currency: profileData.currency || 'USD',
-                                peRatio: metricsData.metric?.peBasicExclExtraTTM || metricsData.metric?.peNormalizedAnnual,
+                                peTTM: metricsData.metric?.peBasicExclExtraTTM || metricsData.metric?.peTTM,
+                                peForward: metricsData.metric?.peNormalizedAnnual,
                                 pbRatio: metricsData.metric?.pbAnnual || metricsData.metric?.pbQuarterly,
                                 dividendYield: metricsData.metric?.dividendYieldIndicatedAnnual ? metricsData.metric.dividendYieldIndicatedAnnual / 100 : null,
                                 dividendRate: metricsData.metric?.dividendPerShareAnnual,
@@ -507,11 +508,19 @@ const firebaseConfig = {
                                             <div className="bg-white rounded-lg p-6 shadow">
                                                 <h4 className="text-lg font-semibold text-gray-700 mb-4">Fundamentals</h4>
                                                 <div className="grid grid-cols-2 gap-4">
-                                                    {stockData.peRatio && (
+                                                    {stockData.peTTM && (
                                                         <div>
-                                                            <p className="text-sm text-gray-500">P/E Ratio</p>
+                                                            <p className="text-sm text-gray-500">P/E (TTM)</p>
                                                             <p className="text-xl font-semibold text-gray-900">
-                                                                {stockData.peRatio.toFixed(2)}
+                                                                {stockData.peTTM.toFixed(2)}
+                                                            </p>
+                                                        </div>
+                                                    )}
+                                                    {stockData.peForward && (
+                                                        <div>
+                                                            <p className="text-sm text-gray-500">P/E (Forward)</p>
+                                                            <p className="text-xl font-semibold text-gray-900">
+                                                                {stockData.peForward.toFixed(2)}
                                                             </p>
                                                         </div>
                                                     )}
@@ -539,7 +548,7 @@ const firebaseConfig = {
                                                             </p>
                                                         </div>
                                                     )}
-                                                    {!stockData.peRatio && !stockData.pbRatio && !stockData.dividendYield && !stockData.dividendRate && (
+                                                    {!stockData.peTTM && !stockData.peForward && !stockData.pbRatio && !stockData.dividendYield && !stockData.dividendRate && (
                                                         <div className="col-span-2 text-center text-gray-500">
                                                             <p className="text-sm">Fundamental data not available</p>
                                                         </div>
