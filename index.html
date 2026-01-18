@@ -392,11 +392,13 @@ const firebaseConfig = {
                     if (isMounted) setNewsLoading(true);
 
                     try {
-                        const today = new Date().toISOString().split('T')[0];
+                        const today = new Date();
+                        const todayStr = today.toISOString().split('T')[0];
+                        const threeDaysAgo = new Date(today.getTime() - 3 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
 
-                        // Fetch from MarketAux with sentiment
+                        // Fetch from MarketAux with sentiment (last 3 days to ensure coverage on weekends)
                         const marketauxResponse = await fetch(
-                            `https://api.marketaux.com/v1/news/all?symbols=${expandedNote.title}&filter_entities=true&published_on=${today}&api_token=${marketauxApiKey}`
+                            `https://api.marketaux.com/v1/news/all?symbols=${expandedNote.title}&filter_entities=true&published_after=${threeDaysAgo}&api_token=${marketauxApiKey}`
                         );
 
                         let articles = [];
@@ -428,7 +430,7 @@ const firebaseConfig = {
                         // If no MarketAux results, try Finnhub company news as fallback
                         if (articles.length === 0 && finnhubApiKey) {
                             const finnhubResponse = await fetch(
-                                `https://finnhub.io/api/v1/company-news?symbol=${expandedNote.title}&from=${today}&to=${today}&token=${finnhubApiKey}`
+                                `https://finnhub.io/api/v1/company-news?symbol=${expandedNote.title}&from=${threeDaysAgo}&to=${todayStr}&token=${finnhubApiKey}`
                             );
                             if (finnhubResponse.ok) {
                                 const finnhubNews = await finnhubResponse.json();
@@ -449,7 +451,7 @@ const firebaseConfig = {
                             // Cache the results
                             localStorage.setItem(cacheKey, JSON.stringify({
                                 data: articles,
-                                date: today
+                                date: todayStr
                             }));
                         }
                     } catch (error) {
