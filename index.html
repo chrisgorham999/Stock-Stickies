@@ -504,48 +504,124 @@ const firebaseConfig = {
                     if (isMounted) setMorningstarLoading(true);
 
                     try {
-                        // Try NASDAQ first, then NYSE
+                        // Try multiple CORS proxies and page types
+                        const corsProxies = [
+                            'https://api.allorigins.win/raw?url=',
+                            'https://corsproxy.io/?',
+                            'https://api.codetabs.com/v1/proxy?quest='
+                        ];
                         const exchanges = ['xnas', 'xnys'];
-                        let html = null;
+                        const pageTypes = ['valuation', 'quote'];
 
-                        for (const exchange of exchanges) {
-                            try {
-                                const proxyUrl = 'https://corsproxy.io/?';
-                                const msUrl = `https://www.morningstar.com/stocks/${exchange}/${ticker.toLowerCase()}/quote`;
-                                const response = await fetch(proxyUrl + encodeURIComponent(msUrl));
-                                if (response.ok) {
-                                    html = await response.text();
-                                    if (html && html.includes('starRating') || html.includes('fairValue')) {
-                                        break;
+                        let html = null;
+                        let foundData = false;
+
+                        // Try each combination of proxy, exchange, and page type
+                        outerLoop:
+                        for (const proxy of corsProxies) {
+                            for (const exchange of exchanges) {
+                                for (const pageType of pageTypes) {
+                                    try {
+                                        const msUrl = `https://www.morningstar.com/stocks/${exchange}/${ticker.toLowerCase()}/${pageType}`;
+                                        const response = await fetch(proxy + encodeURIComponent(msUrl), {
+                                            headers: { 'Accept': 'text/html' }
+                                        });
+                                        if (response.ok) {
+                                            const text = await response.text();
+                                            // Check if we got actual content (not an error page)
+                                            if (text && text.length > 10000 && (
+                                                text.includes('Morningstar') ||
+                                                text.includes('starRating') ||
+                                                text.includes('Fair Value') ||
+                                                text.includes('Economic Moat')
+                                            )) {
+                                                html = text;
+                                                foundData = true;
+                                                break outerLoop;
+                                            }
+                                        }
+                                    } catch (e) {
+                                        continue;
                                     }
                                 }
-                            } catch (e) {
-                                continue;
                             }
                         }
 
+                        let data = {
+                            starRating: null,
+                            fairValue: null,
+                            moat: null,
+                            stewardship: null
+                        };
+
                         if (html) {
-                            // Parse the page for Morningstar data embedded in JSON
-                            const starMatch = html.match(/"starRating"\s*:\s*(\d)/);
-                            const fairValueMatch = html.match(/"fairValue"\s*:\s*([\d.]+)/);
-                            const moatMatch = html.match(/"economicMoat"\s*:\s*"([^"]+)"/i) || html.match(/"moat"\s*:\s*"([^"]+)"/i);
-                            const stewardshipMatch = html.match(/"capitalAllocationRating"\s*:\s*"([^"]+)"/i) || html.match(/"stewardship"\s*:\s*"([^"]+)"/i);
-
-                            const data = {
-                                starRating: starMatch ? parseInt(starMatch[1]) : null,
-                                fairValue: fairValueMatch ? parseFloat(fairValueMatch[1]) : null,
-                                moat: moatMatch ? moatMatch[1] : null,
-                                stewardship: stewardshipMatch ? stewardshipMatch[1] : null
-                            };
-
-                            // Only cache if we got at least some data
-                            if (data.starRating || data.fairValue || data.moat) {
-                                localStorage.setItem(cacheKey, JSON.stringify({
-                                    data: data,
-                                    timestamp: Date.now()
-                                }));
+                            // Try multiple regex patterns for each field
+                            // Star rating patterns
+                            const starPatterns = [
+                                /"starRating"\s*:\s*(\d)/,
+                                /"ratingValue"\s*:\s*(\d)/,
+                                /data-star-rating="(\d)"/,
+                                /class="[^"]*star[^"]*"[^>]*>(\d)/i
+                            ];
+                            for (const pattern of starPatterns) {
+                                const match = html.match(pattern);
+                                if (match) { data.starRating = parseInt(match[1]); break; }
                             }
 
+                            // Fair value patterns
+                            const fvPatterns = [
+                                /"fairValue"\s*:\s*([\d.]+)/,
+                                /"quantitativeFairValue"\s*:\s*([\d.]+)/,
+                                /Fair Value[^$]*\$([\d.]+)/i,
+                                /fairValue['"]\s*:\s*['"]([\d.]+)/
+                            ];
+                            for (const pattern of fvPatterns) {
+                                const match = html.match(pattern);
+                                if (match) { data.fairValue = parseFloat(match[1]); break; }
+                            }
+
+                            // Moat patterns
+                            const moatPatterns = [
+                                /"economicMoat"\s*:\s*"([^"]+)"/i,
+                                /"moat"\s*:\s*"([^"]+)"/i,
+                                /Economic Moat[^<]*<[^>]*>([^<]*(?:Wide|Narrow|None)[^<]*)/i,
+                                /moatRating['"]\s*:\s*['"]([^'"]+)/i
+                            ];
+                            for (const pattern of moatPatterns) {
+                                const match = html.match(pattern);
+                                if (match) {
+                                    const val = match[1].trim();
+                                    if (val.toLowerCase().includes('wide')) data.moat = 'Wide';
+                                    else if (val.toLowerCase().includes('narrow')) data.moat = 'Narrow';
+                                    else if (val.toLowerCase().includes('none')) data.moat = 'None';
+                                    else data.moat = val;
+                                    break;
+                                }
+                            }
+
+                            // Stewardship/Capital Allocation patterns
+                            const stewardPatterns = [
+                                /"capitalAllocationRating"\s*:\s*"([^"]+)"/i,
+                                /"stewardship"\s*:\s*"([^"]+)"/i,
+                                /Capital Allocation[^<]*<[^>]*>([^<]+)/i,
+                                /Stewardship[^<]*<[^>]*>([^<]+)/i
+                            ];
+                            for (const pattern of stewardPatterns) {
+                                const match = html.match(pattern);
+                                if (match) {
+                                    const val = match[1].trim();
+                                    if (val.length < 20) data.stewardship = val;
+                                    break;
+                                }
+                            }
+                        }
+
+                        // Only cache and set if we got at least some data
+                        if (data.starRating || data.fairValue || data.moat || data.stewardship) {
+                            localStorage.setItem(cacheKey, JSON.stringify({
+                                data: data,
+                                timestamp: Date.now()
+                            }));
                             if (isMounted) setMorningstarData(data);
                         } else {
                             if (isMounted) setMorningstarData(null);
