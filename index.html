@@ -728,10 +728,15 @@ const firebaseConfig = {
                                         size: 14
                                     },
                                     formatter: (value, ctx) => {
-                                        return chartLabels[ctx.dataIndex];
+                                        const label = chartLabels[ctx.dataIndex];
+                                        const percentage = label === 'Others'
+                                            ? Math.round(othersPercentage)
+                                            : Math.round(largeSlices[ctx.dataIndex].percentage);
+                                        return `${label}\n${percentage}%`;
                                     },
                                     anchor: 'center',
                                     align: 'center',
+                                    textAlign: 'center',
                                     textStrokeColor: 'rgba(0,0,0,0.5)',
                                     textStrokeWidth: 2
                                 }
