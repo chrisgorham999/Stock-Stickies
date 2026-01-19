@@ -619,96 +619,102 @@ const firebaseConfig = {
                 setNotes(notes.map(n => n.id === noteId ? {...n, shares: isNaN(parsedShares) ? 0 : parsedShares} : n));
             };
 
-            // Chart rendering effect
+            // Chart rendering effect - runs when tab changes, data changes, or after a short delay to ensure canvas is mounted
             useEffect(() => {
-                if (!chartRef.current || portfolioData.length === 0) return;
+                if (mainTab !== 'portfolio' || portfolioData.length === 0) return;
 
-                if (chartInstance.current) {
-                    chartInstance.current.destroy();
-                }
+                // Small delay to ensure canvas is mounted in DOM
+                const timeoutId = setTimeout(() => {
+                    if (!chartRef.current) return;
 
-                const colors = [
-                    '#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6',
-                    '#EC4899', '#06B6D4', '#84CC16', '#F97316', '#6366F1'
-                ];
+                    if (chartInstance.current) {
+                        chartInstance.current.destroy();
+                    }
 
-                chartInstance.current = new Chart(chartRef.current, {
-                    type: 'pie',
-                    data: {
-                        labels: portfolioData.map(h => h.ticker),
-                        datasets: [{
-                            data: portfolioData.map(h => h.value),
-                            backgroundColor: colors.slice(0, portfolioData.length),
-                            borderWidth: 3,
-                            borderColor: darkMode ? '#1f2937' : '#ffffff'
-                        }]
-                    },
-                    plugins: [ChartDataLabels],
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        layout: {
-                            padding: 30
+                    const colors = [
+                        '#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6',
+                        '#EC4899', '#06B6D4', '#84CC16', '#F97316', '#6366F1'
+                    ];
+
+                    chartInstance.current = new Chart(chartRef.current, {
+                        type: 'pie',
+                        data: {
+                            labels: portfolioData.map(h => h.ticker),
+                            datasets: [{
+                                data: portfolioData.map(h => h.value),
+                                backgroundColor: colors.slice(0, portfolioData.length),
+                                borderWidth: 3,
+                                borderColor: darkMode ? '#1f2937' : '#ffffff'
+                            }]
                         },
-                        plugins: {
-                            legend: {
-                                display: true,
-                                position: 'right',
-                                labels: {
-                                    color: darkMode ? '#e5e7eb' : '#374151',
-                                    font: { size: 14, weight: 'bold' },
-                                    padding: 20,
-                                    usePointStyle: true,
-                                    pointStyle: 'circle',
-                                    generateLabels: (chart) => {
-                                        const data = chart.data;
-                                        return data.labels.map((label, i) => {
-                                            const h = portfolioData[i];
-                                            return {
-                                                text: `${h.ticker} - ${h.percentage.toFixed(1)}% - $${h.value.toLocaleString(undefined, {minimumFractionDigits: 0, maximumFractionDigits: 0})}`,
-                                                fillStyle: data.datasets[0].backgroundColor[i],
-                                                strokeStyle: data.datasets[0].borderColor,
-                                                lineWidth: 1,
-                                                hidden: false,
-                                                index: i
-                                            };
-                                        });
-                                    }
-                                }
+                        plugins: [ChartDataLabels],
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            layout: {
+                                padding: 30
                             },
-                            tooltip: {
-                                callbacks: {
-                                    label: (ctx) => {
+                            plugins: {
+                                legend: {
+                                    display: true,
+                                    position: 'right',
+                                    labels: {
+                                        color: darkMode ? '#e5e7eb' : '#374151',
+                                        font: { size: 14, weight: 'bold' },
+                                        padding: 20,
+                                        usePointStyle: true,
+                                        pointStyle: 'circle',
+                                        generateLabels: (chart) => {
+                                            const data = chart.data;
+                                            return data.labels.map((label, i) => {
+                                                const h = portfolioData[i];
+                                                return {
+                                                    text: `${h.ticker} - ${h.percentage.toFixed(1)}% - $${h.value.toLocaleString(undefined, {minimumFractionDigits: 0, maximumFractionDigits: 0})}`,
+                                                    fillStyle: data.datasets[0].backgroundColor[i],
+                                                    strokeStyle: data.datasets[0].borderColor,
+                                                    lineWidth: 1,
+                                                    hidden: false,
+                                                    index: i
+                                                };
+                                            });
+                                        }
+                                    }
+                                },
+                                tooltip: {
+                                    callbacks: {
+                                        label: (ctx) => {
+                                            const h = portfolioData[ctx.dataIndex];
+                                            return `${h.ticker}: ${h.shares} shares @ $${h.price.toFixed(2)} = $${h.value.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})} (${h.percentage.toFixed(1)}%)`;
+                                        }
+                                    }
+                                },
+                                datalabels: {
+                                    color: '#ffffff',
+                                    font: {
+                                        weight: 'bold',
+                                        size: 14
+                                    },
+                                    formatter: (value, ctx) => {
                                         const h = portfolioData[ctx.dataIndex];
-                                        return `${h.ticker}: ${h.shares} shares @ $${h.price.toFixed(2)} = $${h.value.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})} (${h.percentage.toFixed(1)}%)`;
-                                    }
+                                        // Only show label if slice is large enough (>5%)
+                                        if (h.percentage < 5) return '';
+                                        return h.ticker;
+                                    },
+                                    anchor: 'center',
+                                    align: 'center',
+                                    textStrokeColor: 'rgba(0,0,0,0.5)',
+                                    textStrokeWidth: 2
                                 }
-                            },
-                            datalabels: {
-                                color: '#ffffff',
-                                font: {
-                                    weight: 'bold',
-                                    size: 14
-                                },
-                                formatter: (value, ctx) => {
-                                    const h = portfolioData[ctx.dataIndex];
-                                    // Only show label if slice is large enough (>5%)
-                                    if (h.percentage < 5) return '';
-                                    return h.ticker;
-                                },
-                                anchor: 'center',
-                                align: 'center',
-                                textStrokeColor: 'rgba(0,0,0,0.5)',
-                                textStrokeWidth: 2
                             }
                         }
-                    }
-                });
+                    });
+                }, 50);
 
                 return () => {
+                    clearTimeout(timeoutId);
                     if (chartInstance.current) chartInstance.current.destroy();
                 };
-            }, [portfolioData, darkMode]);
+            }, [mainTab, portfolioData, darkMode]);
 
             if (!currentUser) {
                 return (
