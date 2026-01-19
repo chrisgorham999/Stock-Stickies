@@ -110,9 +110,6 @@ const firebaseConfig = {
             const [marketauxApiKey, setMarketauxApiKey] = useState('');
             const [newsData, setNewsData] = useState(null);
             const [newsLoading, setNewsLoading] = useState(false);
-            const [morningstarData, setMorningstarData] = useState(null);
-            const [morningstarLoading, setMorningstarLoading] = useState(false);
-            const [morningstarApiKey, setMorningstarApiKey] = useState('');
             const [watchListModalTicker, setWatchListModalTicker] = useState(null);
 
             // Compute the active ticker for data fetching (from expanded note or watch list modal)
@@ -140,7 +137,6 @@ const firebaseConfig = {
                             setDarkMode(data.darkMode || false);
                             setFinnhubApiKey(data.finnhubApiKey || '');
                             setMarketauxApiKey(data.marketauxApiKey || '');
-                            setMorningstarApiKey(data.morningstarApiKey || '');
                             setWatchList(data.watchList || []);
                         }
                     });
@@ -157,7 +153,7 @@ const firebaseConfig = {
                     const timeout = setTimeout(() => {
                         setSyncStatus('syncing');
                         db.collection('users').doc(auth.currentUser.uid).set({
-                            notes, colorLabels, nextId, collapsedCategories, darkMode, finnhubApiKey, marketauxApiKey, morningstarApiKey, watchList,
+                            notes, colorLabels, nextId, collapsedCategories, darkMode, finnhubApiKey, marketauxApiKey, watchList,
                             updatedAt: firebase.firestore.FieldValue.serverTimestamp()
                         }).then(() => {
                             setSyncStatus('synced');
@@ -173,13 +169,13 @@ const firebaseConfig = {
                         if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
                     };
                 }
-            }, [notes, colorLabels, nextId, collapsedCategories, darkMode, finnhubApiKey, marketauxApiKey, morningstarApiKey, watchList]);
+            }, [notes, colorLabels, nextId, collapsedCategories, darkMode, finnhubApiKey, marketauxApiKey, watchList]);
 
             useEffect(() => {
                 const handleBeforeUnload = (e) => {
                     if (currentUser && auth.currentUser && db) {
                         db.collection('users').doc(auth.currentUser.uid).set({
-                            notes, colorLabels, nextId, collapsedCategories, darkMode, finnhubApiKey, marketauxApiKey, morningstarApiKey, watchList,
+                            notes, colorLabels, nextId, collapsedCategories, darkMode, finnhubApiKey, marketauxApiKey, watchList,
                             updatedAt: firebase.firestore.FieldValue.serverTimestamp()
                         });
                     }
@@ -187,7 +183,7 @@ const firebaseConfig = {
 
                 window.addEventListener('beforeunload', handleBeforeUnload);
                 return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-            }, [currentUser, notes, colorLabels, nextId, collapsedCategories, darkMode, finnhubApiKey, marketauxApiKey, morningstarApiKey, watchList]);
+            }, [currentUser, notes, colorLabels, nextId, collapsedCategories, darkMode, finnhubApiKey, marketauxApiKey, watchList]);
 
             const handleLogin = async (e) => {
                 e.preventDefault();
@@ -226,7 +222,7 @@ const firebaseConfig = {
             const syncNow = () => {
                 if (currentUser && auth.currentUser && db) {
                     db.collection('users').doc(auth.currentUser.uid).set({
-                        notes, colorLabels, nextId, collapsedCategories, darkMode, finnhubApiKey, marketauxApiKey, morningstarApiKey, watchList,
+                        notes, colorLabels, nextId, collapsedCategories, darkMode, finnhubApiKey, marketauxApiKey, watchList,
                         updatedAt: firebase.firestore.FieldValue.serverTimestamp()
                     });
                 }
@@ -475,180 +471,6 @@ const firebaseConfig = {
                 return () => { isMounted = false; };
             }, [activeTicker, marketauxApiKey, finnhubApiKey]);
 
-            // Morningstar data fetching effect (using RapidAPI)
-            useEffect(() => {
-                let isMounted = true;
-
-                const loadMorningstarData = async () => {
-                    if (!activeTicker || !morningstarApiKey) {
-                        if (isMounted) setMorningstarData(null);
-                        return;
-                    }
-
-                    const ticker = activeTicker.toUpperCase();
-
-                    // Check cache first (refresh weekly)
-                    const cacheKey = `morningstar_${ticker}`;
-                    const cached = localStorage.getItem(cacheKey);
-                    if (cached) {
-                        try {
-                            const { data, timestamp } = JSON.parse(cached);
-                            const weekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
-                            if (timestamp > weekAgo && data) {
-                                if (isMounted) setMorningstarData(data);
-                                return;
-                            }
-                        } catch (e) {
-                            localStorage.removeItem(cacheKey);
-                        }
-                    }
-
-                    // Check performanceId cache
-                    const perfIdCacheKey = `morningstar_perfId_${ticker}`;
-                    let performanceId = null;
-                    const cachedPerfId = localStorage.getItem(perfIdCacheKey);
-                    if (cachedPerfId) {
-                        try {
-                            const { id, timestamp } = JSON.parse(cachedPerfId);
-                            const monthAgo = Date.now() - 30 * 24 * 60 * 60 * 1000;
-                            if (timestamp > monthAgo && id) {
-                                performanceId = id;
-                            }
-                        } catch (e) {
-                            localStorage.removeItem(perfIdCacheKey);
-                        }
-                    }
-
-                    if (isMounted) setMorningstarLoading(true);
-
-                    try {
-                        const rapidApiHeaders = {
-                            'x-rapidapi-host': 'morningstar13.p.rapidapi.com',
-                            'x-rapidapi-key': morningstarApiKey
-                        };
-
-                        // Step 1: Get performanceId from ticker (if not cached)
-                        if (!performanceId) {
-                            const searchResponse = await fetch(
-                                `https://morningstar13.p.rapidapi.com/search?query=${ticker}&type=stock`,
-                                { headers: rapidApiHeaders }
-                            );
-                            if (searchResponse.ok) {
-                                const searchData = await searchResponse.json();
-                                // Look for exact ticker match in results
-                                if (searchData && Array.isArray(searchData)) {
-                                    const match = searchData.find(item =>
-                                        item.ticker?.toUpperCase() === ticker ||
-                                        item.symbol?.toUpperCase() === ticker
-                                    );
-                                    if (match) {
-                                        performanceId = match.performanceId || match.id;
-                                    } else if (searchData.length > 0) {
-                                        // Use first result if no exact match
-                                        performanceId = searchData[0].performanceId || searchData[0].id;
-                                    }
-                                } else if (searchData && searchData.results) {
-                                    const match = searchData.results.find(item =>
-                                        item.ticker?.toUpperCase() === ticker ||
-                                        item.symbol?.toUpperCase() === ticker
-                                    );
-                                    if (match) {
-                                        performanceId = match.performanceId || match.id;
-                                    } else if (searchData.results.length > 0) {
-                                        performanceId = searchData.results[0].performanceId || searchData.results[0].id;
-                                    }
-                                }
-                                // Cache the performanceId
-                                if (performanceId) {
-                                    localStorage.setItem(perfIdCacheKey, JSON.stringify({
-                                        id: performanceId,
-                                        timestamp: Date.now()
-                                    }));
-                                }
-                            }
-                        }
-
-                        let data = {
-                            starRating: null,
-                            fairValue: null,
-                            moat: null,
-                            stewardship: null
-                        };
-
-                        if (performanceId) {
-                            // Step 2: Fetch fair value data
-                            const fairValueResponse = await fetch(
-                                `https://morningstar13.p.rapidapi.com/stock/fair-value?performanceId=${performanceId}&type=chart`,
-                                { headers: rapidApiHeaders }
-                            );
-                            if (fairValueResponse.ok) {
-                                const fvData = await fairValueResponse.json();
-                                // Extract fair value from response
-                                if (fvData) {
-                                    // Try different possible response structures
-                                    data.fairValue = fvData.fairValue || fvData.fair_value ||
-                                        fvData.quantitativeFairValue || fvData.latestFairValue ||
-                                        (fvData.chart && fvData.chart[fvData.chart.length - 1]?.fairValue);
-                                    data.starRating = fvData.starRating || fvData.rating || fvData.stars;
-                                    data.moat = fvData.moat || fvData.economicMoat || fvData.moatRating;
-                                    data.stewardship = fvData.stewardship || fvData.capitalAllocation ||
-                                        fvData.capitalAllocationRating;
-                                }
-                            }
-
-                            // Step 3: Try to get additional analysis data if we're missing fields
-                            if (!data.starRating || !data.moat) {
-                                try {
-                                    const analysisResponse = await fetch(
-                                        `https://morningstar13.p.rapidapi.com/stock/get-analysis?performanceId=${performanceId}`,
-                                        { headers: rapidApiHeaders }
-                                    );
-                                    if (analysisResponse.ok) {
-                                        const analysisData = await analysisResponse.json();
-                                        if (analysisData) {
-                                            if (!data.starRating) {
-                                                data.starRating = analysisData.starRating || analysisData.rating || analysisData.stars;
-                                            }
-                                            if (!data.moat) {
-                                                data.moat = analysisData.moat || analysisData.economicMoat || analysisData.moatRating;
-                                            }
-                                            if (!data.stewardship) {
-                                                data.stewardship = analysisData.stewardship || analysisData.capitalAllocation;
-                                            }
-                                            if (!data.fairValue) {
-                                                data.fairValue = analysisData.fairValue || analysisData.fair_value;
-                                            }
-                                        }
-                                    }
-                                } catch (e) {
-                                    // Analysis endpoint may not exist, continue with what we have
-                                }
-                            }
-                        }
-
-                        // Only cache and set if we got at least some data
-                        if (data.starRating || data.fairValue || data.moat || data.stewardship) {
-                            localStorage.setItem(cacheKey, JSON.stringify({
-                                data: data,
-                                timestamp: Date.now()
-                            }));
-                            if (isMounted) setMorningstarData(data);
-                        } else {
-                            if (isMounted) setMorningstarData(null);
-                        }
-                    } catch (error) {
-                        console.error('Morningstar fetch error:', error);
-                        if (isMounted) setMorningstarData(null);
-                    }
-
-                    if (isMounted) setMorningstarLoading(false);
-                };
-
-                loadMorningstarData();
-
-                return () => { isMounted = false; };
-            }, [activeTicker, morningstarApiKey]);
-
             if (!currentUser) {
                 return (
                     <div className="min-h-screen bg-gradient-to-br from-blue-100 to-purple-100 flex items-center justify-center p-4">
@@ -893,61 +715,6 @@ const firebaseConfig = {
                                                 )}
                                             </div>
 
-                                            {/* Morningstar Ratings Section */}
-                                            <div className="bg-white rounded-lg p-6 shadow">
-                                                <h4 className="text-lg font-semibold text-gray-700 mb-4">Morningstar Ratings</h4>
-                                                {morningstarLoading ? (
-                                                    <div className="flex items-center justify-center py-4">
-                                                        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-500"></div>
-                                                        <span className="ml-2 text-gray-500">Loading ratings...</span>
-                                                    </div>
-                                                ) : morningstarData && (morningstarData.starRating || morningstarData.fairValue || morningstarData.moat || morningstarData.stewardship) ? (
-                                                    <div className="grid grid-cols-2 gap-4">
-                                                        {morningstarData.starRating && (
-                                                            <div>
-                                                                <p className="text-sm text-gray-500">Star Rating</p>
-                                                                <p className="text-xl text-yellow-500">
-                                                                    {'★'.repeat(morningstarData.starRating)}{'☆'.repeat(5 - morningstarData.starRating)}
-                                                                </p>
-                                                            </div>
-                                                        )}
-                                                        {morningstarData.fairValue && (
-                                                            <div>
-                                                                <p className="text-sm text-gray-500">Fair Value</p>
-                                                                <p className="text-xl font-semibold text-gray-900">
-                                                                    ${morningstarData.fairValue.toFixed(2)}
-                                                                </p>
-                                                            </div>
-                                                        )}
-                                                        {morningstarData.moat && (
-                                                            <div>
-                                                                <p className="text-sm text-gray-500">Economic Moat</p>
-                                                                <p className={`text-xl font-semibold ${
-                                                                    morningstarData.moat.toLowerCase() === 'wide' ? 'text-green-600' :
-                                                                    morningstarData.moat.toLowerCase() === 'narrow' ? 'text-yellow-600' : 'text-gray-600'
-                                                                }`}>
-                                                                    {morningstarData.moat}
-                                                                </p>
-                                                            </div>
-                                                        )}
-                                                        {morningstarData.stewardship && (
-                                                            <div>
-                                                                <p className="text-sm text-gray-500">Stewardship</p>
-                                                                <p className={`text-xl font-semibold ${
-                                                                    morningstarData.stewardship.toLowerCase() === 'exemplary' ? 'text-green-600' :
-                                                                    morningstarData.stewardship.toLowerCase() === 'standard' ? 'text-blue-600' : 'text-gray-600'
-                                                                }`}>
-                                                                    {morningstarData.stewardship}
-                                                                </p>
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                ) : (
-                                                    <p className="text-sm text-gray-500 text-center py-4">
-                                                        {!morningstarApiKey ? 'Add Morningstar API key in settings' : 'Morningstar data unavailable for this ticker'}
-                                                    </p>
-                                                )}
-                                            </div>
                                         </div>
                                     ) : (
                                         <div className="flex items-center justify-center h-full text-gray-500">
@@ -1098,53 +865,6 @@ const firebaseConfig = {
                                             )}
                                         </div>
 
-                                        {/* Morningstar Ratings */}
-                                        <div className="bg-white rounded-lg p-6 shadow">
-                                            <h4 className="text-lg font-semibold text-gray-700 mb-4">Morningstar Ratings</h4>
-                                            {morningstarLoading ? (
-                                                <div className="flex items-center justify-center py-4">
-                                                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-500"></div>
-                                                    <span className="ml-2 text-gray-500">Loading ratings...</span>
-                                                </div>
-                                            ) : morningstarData && (morningstarData.starRating || morningstarData.fairValue || morningstarData.moat || morningstarData.stewardship) ? (
-                                                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                                                    {morningstarData.starRating && (
-                                                        <div>
-                                                            <p className="text-sm text-gray-500">Star Rating</p>
-                                                            <p className="text-xl text-yellow-500">
-                                                                {'★'.repeat(morningstarData.starRating)}{'☆'.repeat(5 - morningstarData.starRating)}
-                                                            </p>
-                                                        </div>
-                                                    )}
-                                                    {morningstarData.fairValue && (
-                                                        <div>
-                                                            <p className="text-sm text-gray-500">Fair Value</p>
-                                                            <p className="text-xl font-semibold text-gray-900">${morningstarData.fairValue.toFixed(2)}</p>
-                                                        </div>
-                                                    )}
-                                                    {morningstarData.moat && (
-                                                        <div>
-                                                            <p className="text-sm text-gray-500">Economic Moat</p>
-                                                            <p className={`text-xl font-semibold ${
-                                                                morningstarData.moat.toLowerCase() === 'wide' ? 'text-green-600' :
-                                                                morningstarData.moat.toLowerCase() === 'narrow' ? 'text-yellow-600' : 'text-gray-600'
-                                                            }`}>{morningstarData.moat}</p>
-                                                        </div>
-                                                    )}
-                                                    {morningstarData.stewardship && (
-                                                        <div>
-                                                            <p className="text-sm text-gray-500">Stewardship</p>
-                                                            <p className={`text-xl font-semibold ${
-                                                                morningstarData.stewardship.toLowerCase() === 'exemplary' ? 'text-green-600' :
-                                                                morningstarData.stewardship.toLowerCase() === 'standard' ? 'text-blue-600' : 'text-gray-600'
-                                                            }`}>{morningstarData.stewardship}</p>
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            ) : (
-                                                <p className="text-sm text-gray-500 text-center py-4">{!morningstarApiKey ? 'Add Morningstar API key in settings' : 'Morningstar data unavailable'}</p>
-                                            )}
-                                        </div>
                                     </div>
                                 ) : (
                                     <div className="flex items-center justify-center h-full text-gray-500">
@@ -1229,18 +949,6 @@ const firebaseConfig = {
                                             placeholder="MarketAux API Key"
                                             className={`px-4 py-3 rounded-lg border-2 ${darkMode ? 'bg-gray-800 text-white border-gray-600' : 'bg-white text-gray-800 border-gray-300'} focus:ring-2 focus:ring-blue-500 outline-none`}
                                             style={{width: '200px'}}
-                                        />
-                                    </div>
-                                )}
-                                {!morningstarApiKey && (
-                                    <div className="flex items-center gap-2">
-                                        <input
-                                            type="text"
-                                            value={morningstarApiKey}
-                                            onChange={(e) => setMorningstarApiKey(e.target.value)}
-                                            placeholder="Morningstar API Key (RapidAPI)"
-                                            className={`px-4 py-3 rounded-lg border-2 ${darkMode ? 'bg-gray-800 text-white border-gray-600' : 'bg-white text-gray-800 border-gray-300'} focus:ring-2 focus:ring-blue-500 outline-none`}
-                                            style={{width: '220px'}}
                                         />
                                     </div>
                                 )}
