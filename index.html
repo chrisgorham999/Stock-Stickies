@@ -659,7 +659,7 @@ const firebaseConfig = {
                                     display: true,
                                     position: 'right',
                                     labels: {
-                                        color: darkMode ? '#e5e7eb' : '#374151',
+                                        color: darkMode ? '#ffffff' : '#374151',
                                         font: { size: 14, weight: 'bold' },
                                         padding: 20,
                                         usePointStyle: true,
@@ -672,6 +672,7 @@ const firebaseConfig = {
                                                     text: `${h.ticker} - ${h.percentage.toFixed(1)}% - $${h.value.toLocaleString(undefined, {minimumFractionDigits: 0, maximumFractionDigits: 0})}`,
                                                     fillStyle: data.datasets[0].backgroundColor[i],
                                                     strokeStyle: data.datasets[0].borderColor,
+                                                    fontColor: darkMode ? '#ffffff' : '#374151',
                                                     lineWidth: 1,
                                                     hidden: false,
                                                     index: i
