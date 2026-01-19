@@ -482,11 +482,77 @@ const firebaseConfig = {
                 notes.filter(n => n.title && n.shares && n.shares > 0),
             [notes]);
 
-            // Portfolio price fetching effect - based on notes with shares
+            // Portfolio price fetching effect - only updates at 10am EST and 4pm EST
             useEffect(() => {
                 if (!finnhubApiKey || portfolioNotes.length === 0) return;
 
                 let isMounted = true;
+
+                // Check if we should fetch prices (10am or 4pm EST windows, or no cached data)
+                const shouldFetchPrices = () => {
+                    const cacheKey = 'portfolio_prices_cache';
+                    const cached = localStorage.getItem(cacheKey);
+
+                    // Get current time in EST
+                    const now = new Date();
+                    const estOffset = -5; // EST is UTC-5 (ignoring DST for simplicity)
+                    const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
+                    const estTime = new Date(utc + (3600000 * estOffset));
+                    const estHour = estTime.getHours();
+                    const estMinutes = estTime.getMinutes();
+
+                    // Define fetch windows: 10:00-10:15 EST and 16:00-16:15 EST
+                    const isMorningWindow = estHour === 10 && estMinutes < 15;
+                    const isAfternoonWindow = estHour === 16 && estMinutes < 15;
+
+                    if (!cached) {
+                        return { shouldFetch: true, cachedPrices: null };
+                    }
+
+                    try {
+                        const { prices, timestamp, fetchedWindow } = JSON.parse(cached);
+                        const cacheAge = Date.now() - timestamp;
+                        const oneHour = 60 * 60 * 1000;
+
+                        // Determine current window identifier
+                        const today = estTime.toISOString().split('T')[0];
+                        const currentWindow = isMorningWindow ? `${today}-10am` :
+                                             isAfternoonWindow ? `${today}-4pm` : null;
+
+                        // Fetch if: in a fetch window AND haven't fetched this window yet
+                        // OR if cache is older than 12 hours (stale data)
+                        if ((isMorningWindow || isAfternoonWindow) && fetchedWindow !== currentWindow) {
+                            return { shouldFetch: true, cachedPrices: prices, currentWindow };
+                        }
+
+                        // Use cached data if less than 12 hours old
+                        if (cacheAge < 12 * oneHour) {
+                            return { shouldFetch: false, cachedPrices: prices };
+                        }
+
+                        // Cache is stale, fetch fresh
+                        return { shouldFetch: true, cachedPrices: prices };
+                    } catch (e) {
+                        return { shouldFetch: true, cachedPrices: null };
+                    }
+                };
+
+                const { shouldFetch, cachedPrices, currentWindow } = shouldFetchPrices();
+
+                // If we have cached prices, use them immediately
+                if (cachedPrices && Object.keys(cachedPrices).length > 0) {
+                    setPortfolioPrices(cachedPrices);
+                    if (!shouldFetch) {
+                        setPortfolioLoading(false);
+                        return;
+                    }
+                }
+
+                if (!shouldFetch) {
+                    setPortfolioLoading(false);
+                    return;
+                }
+
                 setPortfolioLoading(true);
 
                 const fetchPrices = async () => {
@@ -505,6 +571,12 @@ const firebaseConfig = {
                     if (isMounted) {
                         setPortfolioPrices(prices);
                         setPortfolioLoading(false);
+                        // Cache the prices with timestamp and window identifier
+                        localStorage.setItem('portfolio_prices_cache', JSON.stringify({
+                            prices,
+                            timestamp: Date.now(),
+                            fetchedWindow: currentWindow || `manual-${Date.now()}`
+                        }));
                     }
                 };
 
