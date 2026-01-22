@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://unpkg.com https://www.gstatic.com https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com; img-src 'self' data: https:; connect-src 'self' https://finnhub.io https://api.marketaux.com https://*.firebaseio.com https://*.googleapis.com https://*.firebaseapp.com; font-src 'self' data:; frame-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self';">
     <title>Stock Stickies</title>
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><defs><linearGradient id='g' x1='0%25' y1='0%25' x2='100%25' y2='100%25'><stop offset='0%25' style='stop-color:%23fff59d'/><stop offset='100%25' style='stop-color:%23ffeb3b'/></linearGradient></defs><path d='M5 5 h90 v70 l-20 20 h-70 z' fill='url(%23g)'/><path d='M75 75 v20 l20-20 z' fill='%23fdd835'/><line x1='15' y1='25' x2='75' y2='25' stroke='%23bdbdbd' stroke-width='2'/><line x1='15' y1='40' x2='75' y2='40' stroke='%23bdbdbd' stroke-width='2'/><line x1='15' y1='55' x2='60' y2='55' stroke='%23bdbdbd' stroke-width='2'/></svg>">
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
@@ -81,6 +82,83 @@ const firebaseConfig = {
 
         const COLORS = ['bg-yellow-200', 'bg-pink-200', 'bg-blue-200', 'bg-green-200', 'bg-red-300', 'bg-orange-200'];
         const UNCLASSIFIED_COLOR = 'bg-gray-300';
+
+        // Input validation constants
+        const MAX_TITLE_LENGTH = 10; // For ticker symbols
+        const MAX_CONTENT_LENGTH = 10000; // For note content
+        const MAX_NICKNAME_LENGTH = 50;
+        const MAX_API_KEY_LENGTH = 200;
+
+        // Input validation functions
+        const validateTicker = (ticker) => {
+            if (!ticker || typeof ticker !== 'string') return false;
+            const trimmed = ticker.trim().toUpperCase();
+            // Ticker must be 1-5 uppercase letters/numbers (some tickers have numbers)
+            const tickerRegex = /^[A-Z0-9]{1,5}$/;
+            return tickerRegex.test(trimmed) && trimmed.length <= MAX_TITLE_LENGTH;
+        };
+
+        const sanitizeTicker = (ticker) => {
+            if (!ticker || typeof ticker !== 'string') return '';
+            // Remove any non-alphanumeric characters and convert to uppercase
+            const sanitized = ticker.replace(/[^A-Z0-9]/gi, '').toUpperCase();
+            // Limit to 5 characters
+            return sanitized.substring(0, 5);
+        };
+
+        const validateApiKey = (key, type) => {
+            if (!key || typeof key !== 'string') return false;
+            const trimmed = key.trim();
+            if (trimmed.length === 0 || trimmed.length > MAX_API_KEY_LENGTH) return false;
+            
+            // Basic format validation - alphanumeric and common special chars
+            const apiKeyRegex = /^[a-zA-Z0-9\-_]+$/;
+            if (!apiKeyRegex.test(trimmed)) return false;
+            
+            // Type-specific validation
+            if (type === 'finnhub') {
+                // Finnhub keys are typically 20+ characters
+                return trimmed.length >= 20;
+            }
+            if (type === 'marketaux') {
+                // MarketAux keys are typically 32+ characters
+                return trimmed.length >= 32;
+            }
+            return true; // Generic validation passed
+        };
+
+        const validateContent = (content) => {
+            if (content === null || content === undefined) return true; // Allow empty
+            if (typeof content !== 'string') return false;
+            return content.length <= MAX_CONTENT_LENGTH;
+        };
+
+        const validateNickname = (nickname) => {
+            if (!nickname || typeof nickname !== 'string') return true; // Allow empty
+            const trimmed = nickname.trim();
+            if (trimmed.length > MAX_NICKNAME_LENGTH) return false;
+            // Allow alphanumeric, spaces, and common punctuation
+            const nicknameRegex = /^[a-zA-Z0-9\s\-_.,!?']+$/;
+            return nicknameRegex.test(trimmed);
+        };
+
+        const sanitizeContent = (content) => {
+            if (content === null || content === undefined) return '';
+            if (typeof content !== 'string') return String(content);
+            // Limit length
+            return content.substring(0, MAX_CONTENT_LENGTH);
+        };
+
+        // Helper function to build API URLs safely with URLSearchParams
+        const buildApiUrl = (baseUrl, params) => {
+            const url = new URL(baseUrl);
+            Object.entries(params).forEach(([key, value]) => {
+                if (value !== null && value !== undefined && value !== '') {
+                    url.searchParams.append(key, String(value));
+                }
+            });
+            return url.toString();
+        };
 
         function StickyNotesApp() {
             const [currentUser, setCurrentUser] = useState(null);
@@ -233,10 +311,12 @@ const firebaseConfig = {
             };
 
             const updateNoteTitle = (noteId, title) => {
-                const uppercaseTitle = title.toUpperCase();
-                setNotes(notes.map(n => n.id === noteId ? {...n, title: uppercaseTitle} : n));
+                // Sanitize and validate ticker input
+                const sanitized = sanitizeTicker(title);
+                if (sanitized.length > MAX_TITLE_LENGTH) return; // Prevent overly long input
+                setNotes(notes.map(n => n.id === noteId ? {...n, title: sanitized} : n));
                 if (expandedNote && expandedNote.id === noteId) {
-                    setExpandedNote({...expandedNote, title: uppercaseTitle});
+                    setExpandedNote({...expandedNote, title: sanitized});
                 }
             };
 
@@ -250,11 +330,22 @@ const firebaseConfig = {
             };
 
             const addToWatchList = () => {
-                const ticker = newWatchTicker.trim().toUpperCase();
-                if (ticker && !watchList.includes(ticker)) {
-                    isSavingRef.current = true;
-                    setWatchList([...watchList, ticker]);
+                const sanitized = sanitizeTicker(newWatchTicker);
+                if (!sanitized) {
                     setNewWatchTicker('');
+                    return;
+                }
+                // Validate ticker format
+                if (!validateTicker(sanitized)) {
+                    alert('Invalid ticker symbol. Please enter 1-5 letters/numbers.');
+                    return;
+                }
+                if (!watchList.includes(sanitized)) {
+                    isSavingRef.current = true;
+                    setWatchList([...watchList, sanitized]);
+                    setNewWatchTicker('');
+                } else {
+                    alert('Ticker already in watch list.');
                 }
             };
 
@@ -299,6 +390,16 @@ const firebaseConfig = {
                         return;
                     }
 
+                    // Validate ticker format before making API calls
+                    if (!validateTicker(activeTicker)) {
+                        if (isMounted) {
+                            setStockError('Invalid ticker symbol format');
+                            setStockData(null);
+                            setStockLoading(false);
+                        }
+                        return;
+                    }
+
                     if (isMounted) {
                         setStockLoading(true);
                         setStockError(null);
@@ -313,8 +414,12 @@ const firebaseConfig = {
                             return;
                         }
 
-                        // Fetch quote data from Finnhub
-                        const quoteResponse = await fetch(`https://finnhub.io/api/v1/quote?symbol=${activeTicker}&token=${finnhubApiKey}`);
+                        // Fetch quote data from Finnhub - using URLSearchParams for safer URL construction
+                        const quoteUrl = buildApiUrl('https://finnhub.io/api/v1/quote', {
+                            symbol: activeTicker,
+                            token: finnhubApiKey
+                        });
+                        const quoteResponse = await fetch(quoteUrl);
 
                         if (!quoteResponse.ok) {
                             throw new Error('Failed to fetch quote data');
@@ -331,18 +436,33 @@ const firebaseConfig = {
                         }
 
                         // Fetch company profile for additional info
-                        const profileResponse = await fetch(`https://finnhub.io/api/v1/stock/profile2?symbol=${activeTicker}&token=${finnhubApiKey}`);
+                        const profileUrl = buildApiUrl('https://finnhub.io/api/v1/stock/profile2', {
+                            symbol: activeTicker,
+                            token: finnhubApiKey
+                        });
+                        const profileResponse = await fetch(profileUrl);
                         const profileData = profileResponse.ok ? await profileResponse.json() : {};
 
                         // Fetch metrics for fundamentals
-                        const metricsResponse = await fetch(`https://finnhub.io/api/v1/stock/metric?symbol=${activeTicker}&metric=all&token=${finnhubApiKey}`);
+                        const metricsUrl = buildApiUrl('https://finnhub.io/api/v1/stock/metric', {
+                            symbol: activeTicker,
+                            metric: 'all',
+                            token: finnhubApiKey
+                        });
+                        const metricsResponse = await fetch(metricsUrl);
                         const metricsData = metricsResponse.ok ? await metricsResponse.json() : {};
 
                         // Fetch earnings calendar for next earnings date
                         const today = new Date();
                         const fromDate = today.toISOString().split('T')[0];
                         const toDate = new Date(today.getTime() + 90 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]; // 90 days ahead
-                        const earningsResponse = await fetch(`https://finnhub.io/api/v1/calendar/earnings?from=${fromDate}&to=${toDate}&symbol=${activeTicker}&token=${finnhubApiKey}`);
+                        const earningsUrl = buildApiUrl('https://finnhub.io/api/v1/calendar/earnings', {
+                            from: fromDate,
+                            to: toDate,
+                            symbol: activeTicker,
+                            token: finnhubApiKey
+                        });
+                        const earningsResponse = await fetch(earningsUrl);
                         const earningsData = earningsResponse.ok ? await earningsResponse.json() : {};
 
                         if (isMounted) {
@@ -397,7 +517,18 @@ const firebaseConfig = {
                 let isMounted = true;
 
                 const loadNewsData = async () => {
-                    if (!activeTicker || !marketauxApiKey) {
+                    if (!activeTicker) {
+                        if (isMounted) setNewsData(null);
+                        return;
+                    }
+
+                    // Validate ticker format before making API calls
+                    if (!validateTicker(activeTicker)) {
+                        if (isMounted) setNewsData([]);
+                        return;
+                    }
+
+                    if (!marketauxApiKey) {
                         if (isMounted) setNewsData(null);
                         return;
                     }
@@ -422,9 +553,13 @@ const firebaseConfig = {
                         const threeDaysAgo = new Date(today.getTime() - 3 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
 
                         // Fetch from MarketAux with sentiment (last 3 days to ensure coverage on weekends)
-                        const marketauxResponse = await fetch(
-                            `https://api.marketaux.com/v1/news/all?symbols=${activeTicker}&filter_entities=true&published_after=${threeDaysAgo}&api_token=${marketauxApiKey}`
-                        );
+                        const marketauxUrl = buildApiUrl('https://api.marketaux.com/v1/news/all', {
+                            symbols: activeTicker,
+                            filter_entities: 'true',
+                            published_after: threeDaysAgo,
+                            api_token: marketauxApiKey
+                        });
+                        const marketauxResponse = await fetch(marketauxUrl);
 
                         let articles = [];
 
@@ -454,9 +589,13 @@ const firebaseConfig = {
 
                         // If no MarketAux results, try Finnhub company news as fallback
                         if (articles.length === 0 && finnhubApiKey) {
-                            const finnhubResponse = await fetch(
-                                `https://finnhub.io/api/v1/company-news?symbol=${activeTicker}&from=${threeDaysAgo}&to=${todayStr}&token=${finnhubApiKey}`
-                            );
+                            const finnhubNewsUrl = buildApiUrl('https://finnhub.io/api/v1/company-news', {
+                                symbol: activeTicker,
+                                from: threeDaysAgo,
+                                to: todayStr,
+                                token: finnhubApiKey
+                            });
+                            const finnhubResponse = await fetch(finnhubNewsUrl);
                             if (finnhubResponse.ok) {
                                 const finnhubNews = await finnhubResponse.json();
                                 articles = finnhubNews.slice(0, 10).map(article => ({
@@ -574,9 +713,11 @@ const firebaseConfig = {
                     const prices = {};
                     for (const note of portfolioNotes) {
                         try {
-                            const response = await fetch(
-                                `https://finnhub.io/api/v1/quote?symbol=${note.title}&token=${finnhubApiKey}`
-                            );
+                            const portfolioQuoteUrl = buildApiUrl('https://finnhub.io/api/v1/quote', {
+                                symbol: note.title,
+                                token: finnhubApiKey
+                            });
+                            const response = await fetch(portfolioQuoteUrl);
                             const data = await response.json();
                             if (data.c) prices[note.title] = data.c;
                         } catch (e) {
@@ -794,6 +935,7 @@ const firebaseConfig = {
                                         placeholder="TICKER"
                                         className="w-full bg-transparent border-none outline-none text-gray-800 placeholder-gray-500 font-bold text-3xl mb-2 uppercase"
                                         style={{letterSpacing: '0.05em'}}
+                                        maxLength={MAX_TITLE_LENGTH}
                                     />
                                     <div className="flex items-center gap-3 mb-4">
                                         <input
@@ -812,12 +954,17 @@ const firebaseConfig = {
                                     <textarea
                                         value={expandedNote.text}
                                         onChange={(e) => {
-                                            const newText = e.target.value;
+                                            const newText = sanitizeContent(e.target.value);
+                                            if (!validateContent(newText)) {
+                                                alert(`Note content cannot exceed ${MAX_CONTENT_LENGTH} characters.`);
+                                                return;
+                                            }
                                             setNotes(notes.map(n => n.id === expandedNote.id ? {...n, text: newText} : n));
                                             setExpandedNote({...expandedNote, text: newText});
                                         }}
                                         placeholder="Notes..."
                                         className="w-full h-full bg-transparent border-none outline-none resize-none text-gray-800 placeholder-gray-500 text-lg"
+                                        maxLength={MAX_CONTENT_LENGTH}
                                     />
                                 </div>
                                 <div className="w-1/2 bg-gray-50 overflow-auto p-6">
@@ -1206,13 +1353,40 @@ const firebaseConfig = {
                                         <input
                                             type="text"
                                             value={nickname}
-                                            onChange={(e) => setNickname(e.target.value)}
-                                            onBlur={() => nickname && setEditingNickname(false)}
-                                            onKeyDown={(e) => e.key === 'Enter' && nickname && setEditingNickname(false)}
+                                            onChange={(e) => {
+                                                const newNickname = e.target.value;
+                                                if (newNickname.length > MAX_NICKNAME_LENGTH) {
+                                                    alert(`Nickname cannot exceed ${MAX_NICKNAME_LENGTH} characters.`);
+                                                    return;
+                                                }
+                                                setNickname(newNickname);
+                                            }}
+                                            onBlur={() => {
+                                                const trimmed = nickname.trim();
+                                                if (trimmed && !validateNickname(trimmed)) {
+                                                    alert('Invalid nickname. Only letters, numbers, spaces, and basic punctuation are allowed.');
+                                                    setNickname('');
+                                                } else {
+                                                    setNickname(trimmed);
+                                                    if (trimmed) setEditingNickname(false);
+                                                }
+                                            }}
+                                            onKeyDown={(e) => {
+                                                if (e.key === 'Enter') {
+                                                    const trimmed = nickname.trim();
+                                                    if (trimmed && validateNickname(trimmed)) {
+                                                        setNickname(trimmed);
+                                                        setEditingNickname(false);
+                                                    } else if (trimmed) {
+                                                        alert('Invalid nickname. Only letters, numbers, spaces, and basic punctuation are allowed.');
+                                                    }
+                                                }
+                                            }}
                                             placeholder="Enter nickname..."
                                             autoFocus={editingNickname}
                                             className={`px-2 py-1 text-sm rounded border ${darkMode ? 'bg-gray-700 text-white border-gray-600' : 'bg-white text-gray-800 border-gray-300'} focus:ring-1 focus:ring-blue-500 outline-none`}
                                             style={{width: '140px'}}
+                                            maxLength={MAX_NICKNAME_LENGTH}
                                         />
                                     ) : (
                                         <button
@@ -1238,16 +1412,31 @@ const firebaseConfig = {
                                             type="text"
                                             value={finnhubApiKey}
                                             onChange={(e) => {
-                                                const newKey = e.target.value;
+                                                const newKey = e.target.value.trim();
+                                                if (newKey.length > MAX_API_KEY_LENGTH) {
+                                                    alert(`API key cannot exceed ${MAX_API_KEY_LENGTH} characters.`);
+                                                    return;
+                                                }
                                                 setFinnhubApiKey(newKey);
-                                                if (newKey) {
+                                                if (newKey && validateApiKey(newKey, 'finnhub')) {
                                                     setShowApiKeySuccess(true);
                                                     setTimeout(() => setShowApiKeySuccess(false), 3000);
+                                                } else if (newKey && newKey.length >= 20) {
+                                                    // Show success even if format validation is lenient
+                                                    setShowApiKeySuccess(true);
+                                                    setTimeout(() => setShowApiKeySuccess(false), 3000);
+                                                }
+                                            }}
+                                            onBlur={(e) => {
+                                                const key = e.target.value.trim();
+                                                if (key && !validateApiKey(key, 'finnhub')) {
+                                                    alert('Invalid Finnhub API key format. Please check your key.');
                                                 }
                                             }}
                                             placeholder="Finnhub API Key"
                                             className={`px-4 py-3 rounded-lg border-2 ${darkMode ? 'bg-gray-800 text-white border-gray-600' : 'bg-white text-gray-800 border-gray-300'} focus:ring-2 focus:ring-blue-500 outline-none`}
                                             style={{width: '200px'}}
+                                            maxLength={MAX_API_KEY_LENGTH}
                                         />
                                     </div>
                                 )}
@@ -1262,10 +1451,24 @@ const firebaseConfig = {
                                         <input
                                             type="text"
                                             value={marketauxApiKey}
-                                            onChange={(e) => setMarketauxApiKey(e.target.value)}
+                                            onChange={(e) => {
+                                                const newKey = e.target.value.trim();
+                                                if (newKey.length > MAX_API_KEY_LENGTH) {
+                                                    alert(`API key cannot exceed ${MAX_API_KEY_LENGTH} characters.`);
+                                                    return;
+                                                }
+                                                setMarketauxApiKey(newKey);
+                                            }}
+                                            onBlur={(e) => {
+                                                const key = e.target.value.trim();
+                                                if (key && !validateApiKey(key, 'marketaux')) {
+                                                    alert('Invalid MarketAux API key format. Please check your key.');
+                                                }
+                                            }}
                                             placeholder="MarketAux API Key"
                                             className={`px-4 py-3 rounded-lg border-2 ${darkMode ? 'bg-gray-800 text-white border-gray-600' : 'bg-white text-gray-800 border-gray-300'} focus:ring-2 focus:ring-blue-500 outline-none`}
                                             style={{width: '200px'}}
+                                            maxLength={MAX_API_KEY_LENGTH}
                                         />
                                     </div>
                                 )}
@@ -1384,7 +1587,21 @@ const firebaseConfig = {
                                                         />
                                                         {note.shares > 0 && <span className="text-xs text-gray-600">shares owned</span>}
                                                     </div>
-                                                    <textarea value={note.text} onChange={(e) => setNotes(notes.map(n => n.id === note.id ? {...n, text: e.target.value} : n))} placeholder="Notes..." className="w-full h-full bg-transparent border-none outline-none resize-none text-gray-800 placeholder-gray-500" style={{minHeight: '100px'}}/>
+                                                    <textarea 
+                                                        value={note.text} 
+                                                        onChange={(e) => {
+                                                            const newText = sanitizeContent(e.target.value);
+                                                            if (!validateContent(newText)) {
+                                                                alert(`Note content cannot exceed ${MAX_CONTENT_LENGTH} characters.`);
+                                                                return;
+                                                            }
+                                                            setNotes(notes.map(n => n.id === note.id ? {...n, text: newText} : n));
+                                                        }} 
+                                                        placeholder="Notes..." 
+                                                        className="w-full h-full bg-transparent border-none outline-none resize-none text-gray-800 placeholder-gray-500" 
+                                                        style={{minHeight: '100px'}}
+                                                        maxLength={MAX_CONTENT_LENGTH}
+                                                    />
                                                     <button
                                                         onClick={() => setExpandedNote(note)}
                                                         className="absolute bottom-2 right-2 bg-white bg-opacity-70 hover:bg-opacity-100 p-2 rounded-lg shadow transition-all"
@@ -1501,10 +1718,14 @@ const firebaseConfig = {
                                     <input
                                         type="text"
                                         value={newWatchTicker}
-                                        onChange={(e) => setNewWatchTicker(e.target.value.toUpperCase())}
+                                        onChange={(e) => {
+                                            const sanitized = sanitizeTicker(e.target.value);
+                                            setNewWatchTicker(sanitized);
+                                        }}
                                         onKeyDown={(e) => e.key === 'Enter' && addToWatchList()}
                                         placeholder="Add ticker..."
                                         className={`flex-1 px-3 py-2 rounded border-2 ${darkMode ? 'bg-gray-700 text-white border-gray-600' : 'bg-white text-gray-800 border-gray-300'} focus:ring-2 focus:ring-blue-500 outline-none uppercase`}
+                                        maxLength={MAX_TITLE_LENGTH}
                                     />
                                     <button
                                         onClick={addToWatchList}
