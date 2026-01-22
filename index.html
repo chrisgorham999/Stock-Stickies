@@ -3,7 +3,6 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://unpkg.com https://www.gstatic.com https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com; img-src 'self' data: https:; connect-src 'self' https://finnhub.io https://api.marketaux.com https://*.firebaseio.com https://*.googleapis.com https://*.firebaseapp.com; font-src 'self' data:; frame-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self';">
     <title>Stock Stickies</title>
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><defs><linearGradient id='g' x1='0%25' y1='0%25' x2='100%25' y2='100%25'><stop offset='0%25' style='stop-color:%23fff59d'/><stop offset='100%25' style='stop-color:%23ffeb3b'/></linearGradient></defs><path d='M5 5 h90 v70 l-20 20 h-70 z' fill='url(%23g)'/><path d='M75 75 v20 l20-20 z' fill='%23fdd835'/><line x1='15' y1='25' x2='75' y2='25' stroke='%23bdbdbd' stroke-width='2'/><line x1='15' y1='40' x2='75' y2='40' stroke='%23bdbdbd' stroke-width='2'/><line x1='15' y1='55' x2='60' y2='55' stroke='%23bdbdbd' stroke-width='2'/></svg>">
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
@@ -160,6 +159,113 @@ const firebaseConfig = {
             return url.toString();
         };
 
+        // API Key Encryption/Decryption using Web Crypto API
+        // Derives encryption key from user's Firebase UID for security
+        const getEncryptionKey = async (userId) => {
+            const encoder = new TextEncoder();
+            // Use a combination of userId and a constant salt for key derivation
+            // In production, you might want to use a more sophisticated approach
+            const keyMaterial = await crypto.subtle.importKey(
+                'raw',
+                encoder.encode(userId + '|StockStickies|2024'), // Salt with app identifier
+                'PBKDF2',
+                false,
+                ['deriveBits', 'deriveKey']
+            );
+            
+            // Use a fixed salt for consistency (in production, consider storing per-user salt)
+            const salt = encoder.encode('StockStickiesSalt2024');
+            
+            const derivedKey = await crypto.subtle.deriveKey(
+                {
+                    name: 'PBKDF2',
+                    salt: salt,
+                    iterations: 100000,
+                    hash: 'SHA-256'
+                },
+                keyMaterial,
+                { name: 'AES-GCM', length: 256 },
+                false,
+                ['encrypt', 'decrypt']
+            );
+            
+            return derivedKey;
+        };
+
+        // Encrypt API key before storing in Firestore
+        const encryptApiKey = async (apiKey, userId) => {
+            if (!apiKey || !userId) return null;
+            
+            try {
+                const key = await getEncryptionKey(userId);
+                const encoder = new TextEncoder();
+                const data = encoder.encode(apiKey);
+                
+                // Generate a random IV for each encryption
+                const iv = crypto.getRandomValues(new Uint8Array(12));
+                
+                const encrypted = await crypto.subtle.encrypt(
+                    { name: 'AES-GCM', iv: iv },
+                    key,
+                    data
+                );
+                
+                // Convert to base64 for storage in Firestore
+                const encryptedArray = Array.from(new Uint8Array(encrypted));
+                const ivArray = Array.from(iv);
+                
+                return {
+                    encrypted: btoa(String.fromCharCode(...encryptedArray)),
+                    iv: btoa(String.fromCharCode(...ivArray)),
+                    version: '1' // For future migration support
+                };
+            } catch (error) {
+                console.error('Encryption error:', error);
+                return null;
+            }
+        };
+
+        // Decrypt API key after loading from Firestore
+        const decryptApiKey = async (encryptedData, userId) => {
+            if (!encryptedData || !userId) return '';
+            
+            // Handle legacy unencrypted keys (for migration)
+            if (typeof encryptedData === 'string') {
+                return encryptedData; // Return as-is if it's a plain string
+            }
+            
+            // Handle encrypted keys
+            if (!encryptedData.encrypted || !encryptedData.iv) {
+                return '';
+            }
+            
+            try {
+                const key = await getEncryptionKey(userId);
+                
+                // Decode from base64
+                const encrypted = Uint8Array.from(
+                    atob(encryptedData.encrypted),
+                    c => c.charCodeAt(0)
+                );
+                const iv = Uint8Array.from(
+                    atob(encryptedData.iv),
+                    c => c.charCodeAt(0)
+                );
+                
+                const decrypted = await crypto.subtle.decrypt(
+                    { name: 'AES-GCM', iv: iv },
+                    key,
+                    encrypted
+                );
+                
+                const decoder = new TextDecoder();
+                return decoder.decode(decrypted);
+            } catch (error) {
+                console.error('Decryption error:', error);
+                return '';
+            }
+        };
+
         function StickyNotesApp() {
             const [currentUser, setCurrentUser] = useState(null);
             const [loginUsername, setLoginUsername] = useState('');
@@ -224,8 +330,9 @@ const firebaseConfig = {
 
             useEffect(() => {
                 if (!currentUser || !db || !auth.currentUser) return;
-                const unsubscribe = db.collection('users').doc(auth.currentUser.uid)
-                    .onSnapshot((doc) => {
+                const userId = auth.currentUser.uid;
+                const unsubscribe = db.collection('users').doc(userId)
+                    .onSnapshot(async (doc) => {
                         if (doc.exists && !isSavingRef.current) {
                             const data = doc.data();
                             setNotes(data.notes || []);
@@ -233,8 +340,13 @@ const firebaseConfig = {
                             setNextId(data.nextId || 1);
                             setCollapsedCategories(data.collapsedCategories || {});
                             setDarkMode(data.darkMode || false);
-                            setFinnhubApiKey(data.finnhubApiKey || '');
-                            setMarketauxApiKey(data.marketauxApiKey || '');
+                            
+                            // Decrypt API keys when loading from Firestore
+                            const decryptedFinnhub = await decryptApiKey(data.finnhubApiKey, userId);
+                            const decryptedMarketaux = await decryptApiKey(data.marketauxApiKey, userId);
+                            setFinnhubApiKey(decryptedFinnhub || '');
+                            setMarketauxApiKey(decryptedMarketaux || '');
+                            
                             setWatchList(data.watchList || []);
                             setNickname(data.nickname || '');
                         }
@@ -249,10 +361,28 @@ const firebaseConfig = {
                     // Immediately block incoming updates while we have pending changes
                     isSavingRef.current = true;
 
-                    const timeout = setTimeout(() => {
+                    const timeout = setTimeout(async () => {
                         setSyncStatus('syncing');
-                        db.collection('users').doc(auth.currentUser.uid).set({
-                            notes, colorLabels, nextId, collapsedCategories, darkMode, finnhubApiKey, marketauxApiKey, watchList, nickname,
+                        const userId = auth.currentUser.uid;
+                        
+                        // Encrypt API keys before storing
+                        const encryptedFinnhub = finnhubApiKey 
+                            ? await encryptApiKey(finnhubApiKey, userId) 
+                            : null;
+                        const encryptedMarketaux = marketauxApiKey 
+                            ? await encryptApiKey(marketauxApiKey, userId) 
+                            : null;
+                        
+                        db.collection('users').doc(userId).set({
+                            notes, 
+                            colorLabels, 
+                            nextId, 
+                            collapsedCategories, 
+                            darkMode, 
+                            finnhubApiKey: encryptedFinnhub, 
+                            marketauxApiKey: encryptedMarketaux, 
+                            watchList, 
+                            nickname,
                             updatedAt: firebase.firestore.FieldValue.serverTimestamp()
                         }).then(() => {
                             setSyncStatus('synced');
@@ -271,10 +401,28 @@ const firebaseConfig = {
             }, [notes, colorLabels, nextId, collapsedCategories, darkMode, finnhubApiKey, marketauxApiKey, watchList, nickname]);
 
             useEffect(() => {
-                const handleBeforeUnload = (e) => {
+                const handleBeforeUnload = async (e) => {
                     if (currentUser && auth.currentUser && db) {
-                        db.collection('users').doc(auth.currentUser.uid).set({
-                            notes, colorLabels, nextId, collapsedCategories, darkMode, finnhubApiKey, marketauxApiKey, watchList, nickname,
+                        const userId = auth.currentUser.uid;
+                        
+                        // Encrypt API keys before storing
+                        const encryptedFinnhub = finnhubApiKey 
+                            ? await encryptApiKey(finnhubApiKey, userId) 
+                            : null;
+                        const encryptedMarketaux = marketauxApiKey 
+                            ? await encryptApiKey(marketauxApiKey, userId) 
+                            : null;
+                        
+                        db.collection('users').doc(userId).set({
+                            notes, 
+                            colorLabels, 
+                            nextId, 
+                            collapsedCategories, 
+                            darkMode, 
+                            finnhubApiKey: encryptedFinnhub, 
+                            marketauxApiKey: encryptedMarketaux, 
+                            watchList, 
+                            nickname,
                             updatedAt: firebase.firestore.FieldValue.serverTimestamp()
                         });
                     }
@@ -320,10 +468,28 @@ const firebaseConfig = {
                 }
             };
 
-            const syncNow = () => {
+            const syncNow = async () => {
                 if (currentUser && auth.currentUser && db) {
-                    db.collection('users').doc(auth.currentUser.uid).set({
-                        notes, colorLabels, nextId, collapsedCategories, darkMode, finnhubApiKey, marketauxApiKey, watchList, nickname,
+                    const userId = auth.currentUser.uid;
+                    
+                    // Encrypt API keys before storing
+                    const encryptedFinnhub = finnhubApiKey 
+                        ? await encryptApiKey(finnhubApiKey, userId) 
+                        : null;
+                    const encryptedMarketaux = marketauxApiKey 
+                        ? await encryptApiKey(marketauxApiKey, userId) 
+                        : null;
+                    
+                    db.collection('users').doc(userId).set({
+                        notes, 
+                        colorLabels, 
+                        nextId, 
+                        collapsedCategories, 
+                        darkMode, 
+                        finnhubApiKey: encryptedFinnhub, 
+                        marketauxApiKey: encryptedMarketaux, 
+                        watchList, 
+                        nickname,
                         updatedAt: firebase.firestore.FieldValue.serverTimestamp()
                     });
                 }
