@@ -80,8 +80,22 @@ const firebaseConfig = {
             'bg-orange-200': 'Urgent'
         };
 
-        const COLORS = ['bg-yellow-200', 'bg-pink-200', 'bg-blue-200', 'bg-green-200', 'bg-red-300', 'bg-orange-200'];
+        const DEFAULT_COLORS = ['bg-yellow-200', 'bg-pink-200', 'bg-blue-200', 'bg-green-200', 'bg-red-300', 'bg-orange-200'];
         const UNCLASSIFIED_COLOR = 'bg-gray-300';
+
+        // Available Tailwind colors for category customization
+        const AVAILABLE_COLORS = [
+            'bg-yellow-200', 'bg-yellow-300', 'bg-yellow-400',
+            'bg-pink-200', 'bg-pink-300', 'bg-pink-400',
+            'bg-blue-200', 'bg-blue-300', 'bg-blue-400',
+            'bg-green-200', 'bg-green-300', 'bg-green-400',
+            'bg-red-200', 'bg-red-300', 'bg-red-400',
+            'bg-orange-200', 'bg-orange-300', 'bg-orange-400',
+            'bg-purple-200', 'bg-purple-300', 'bg-purple-400',
+            'bg-teal-200', 'bg-teal-300', 'bg-cyan-200'
+        ];
+        const MIN_CATEGORIES = 1;
+        const MAX_CATEGORIES = 10;
 
         // Input validation constants
         const MAX_TITLE_LENGTH = 10; // For ticker symbols
@@ -294,6 +308,14 @@ const firebaseConfig = {
             const [editingLabel, setEditingLabel] = useState(null);
             const [tempLabel, setTempLabel] = useState('');
             const [collapsedCategories, setCollapsedCategories] = useState({});
+            const [categories, setCategories] = useState(DEFAULT_COLORS);
+            // Category management modal states
+            const [showAddCategoryModal, setShowAddCategoryModal] = useState(false);
+            const [newCategoryLabel, setNewCategoryLabel] = useState('');
+            const [newCategoryColor, setNewCategoryColor] = useState(null);
+            const [categoryToDelete, setCategoryToDelete] = useState(null);
+            const [reassignTarget, setReassignTarget] = useState(null);
+            const [editingCategoryColor, setEditingCategoryColor] = useState(null);
             const [expandedNote, setExpandedNote] = useState(null);
             const [stockData, setStockData] = useState(null);
             const [stockLoading, setStockLoading] = useState(false);
@@ -349,6 +371,7 @@ const firebaseConfig = {
                             // Load all data immediately
                             setNotes(data.notes || []);
                             setColorLabels(data.colorLabels || DEFAULT_COLOR_LABELS);
+                            setCategories(data.categories || DEFAULT_COLORS);
                             setNextId(data.nextId || 1);
                             setCollapsedCategories(data.collapsedCategories || {});
                             setDarkMode(data.darkMode || false);
@@ -456,20 +479,21 @@ const firebaseConfig = {
                         if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
                     };
                 }
-            }, [notes, colorLabels, nextId, collapsedCategories, darkMode, finnhubApiKey, marketauxApiKey, watchList, nickname]);
+            }, [notes, colorLabels, categories, nextId, collapsedCategories, darkMode, finnhubApiKey, marketauxApiKey, watchList, nickname]);
 
             useEffect(() => {
                 const handleBeforeUnload = async (e) => {
                     if (currentUser && auth.currentUser && db) {
                         const userId = auth.currentUser.uid;
-                        
+
                         const updateData = {
-                            notes, 
-                            colorLabels, 
-                            nextId, 
-                            collapsedCategories, 
-                            darkMode, 
-                            watchList, 
+                            notes,
+                            colorLabels,
+                            categories,
+                            nextId,
+                            collapsedCategories,
+                            darkMode,
+                            watchList,
                             nickname,
                             updatedAt: firebase.firestore.FieldValue.serverTimestamp()
                         };
@@ -506,7 +530,7 @@ const firebaseConfig = {
 
                 window.addEventListener('beforeunload', handleBeforeUnload);
                 return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-            }, [currentUser, notes, colorLabels, nextId, collapsedCategories, darkMode, finnhubApiKey, marketauxApiKey, watchList, nickname]);
+            }, [currentUser, notes, colorLabels, categories, nextId, collapsedCategories, darkMode, finnhubApiKey, marketauxApiKey, watchList, nickname]);
 
             const handleLogin = async (e) => {
                 e.preventDefault();
@@ -549,12 +573,13 @@ const firebaseConfig = {
                     const userId = auth.currentUser.uid;
                     
                     const updateData = {
-                        notes, 
-                        colorLabels, 
-                        nextId, 
-                        collapsedCategories, 
-                        darkMode, 
-                        watchList, 
+                        notes,
+                        colorLabels,
+                        categories,
+                        nextId,
+                        collapsedCategories,
+                        darkMode,
+                        watchList,
                         nickname,
                         updatedAt: firebase.firestore.FieldValue.serverTimestamp()
                     };
@@ -630,10 +655,81 @@ const firebaseConfig = {
                 }
             };
 
+            // Category management functions
+            const getAvailableColors = () => AVAILABLE_COLORS.filter(c => !categories.includes(c));
+
+            const getNotesCountForCategory = (color) => notes.filter(n => n.color === color && n.classified).length;
+
+            const addCategory = (color, label) => {
+                if (categories.length >= MAX_CATEGORIES) return;
+                if (categories.includes(color)) return;
+                setCategories([...categories, color]);
+                setColorLabels({...colorLabels, [color]: label || 'New Category'});
+                setShowAddCategoryModal(false);
+                setNewCategoryLabel('');
+                setNewCategoryColor(null);
+            };
+
+            const handleDeleteCategory = (color) => {
+                const notesCount = getNotesCountForCategory(color);
+                if (notesCount > 0) {
+                    setCategoryToDelete(color);
+                    setReassignTarget(categories.find(c => c !== color) || null);
+                } else {
+                    // No notes, delete directly
+                    if (categories.length <= MIN_CATEGORIES) return;
+                    setCategories(categories.filter(c => c !== color));
+                    const newLabels = {...colorLabels};
+                    delete newLabels[color];
+                    setColorLabels(newLabels);
+                }
+            };
+
+            const confirmDeleteCategory = () => {
+                if (!categoryToDelete || !reassignTarget) return;
+                // Move all notes from deleted category to target category
+                setNotes(notes.map(n => n.color === categoryToDelete ? {...n, color: reassignTarget} : n));
+                // Remove the category
+                setCategories(categories.filter(c => c !== categoryToDelete));
+                const newLabels = {...colorLabels};
+                delete newLabels[categoryToDelete];
+                setColorLabels(newLabels);
+                // Clear modal state
+                setCategoryToDelete(null);
+                setReassignTarget(null);
+            };
+
+            const changeCategoryColor = (oldColor, newColor) => {
+                if (oldColor === newColor) return;
+                if (categories.includes(newColor)) return;
+                // Update categories array
+                setCategories(categories.map(c => c === oldColor ? newColor : c));
+                // Update notes with old color to new color
+                setNotes(notes.map(n => n.color === oldColor ? {...n, color: newColor} : n));
+                // Update colorLabels
+                const label = colorLabels[oldColor];
+                const newLabels = {...colorLabels};
+                delete newLabels[oldColor];
+                newLabels[newColor] = label;
+                setColorLabels(newLabels);
+                setEditingCategoryColor(null);
+            };
+
+            // Close color picker when clicking outside
+            useEffect(() => {
+                const handleClickOutside = (e) => {
+                    if (editingCategoryColor && !e.target.closest('.group')) {
+                        setEditingCategoryColor(null);
+                    }
+                };
+                document.addEventListener('click', handleClickOutside);
+                return () => document.removeEventListener('click', handleClickOutside);
+            }, [editingCategoryColor]);
+
             // Compute derived state - must be before early return to follow Rules of Hooks
             const unclassifiedNotes = useMemo(() => notes.filter(n => !n.classified), [notes]);
             const classifiedNotes = useMemo(() => notes.filter(n => n.classified), [notes]);
-            const groupedNotes = useMemo(() => COLORS.reduce((acc, color) => { acc[color] = classifiedNotes.filter(n => n.color === color); return acc; }, {}), [classifiedNotes]);
+            const groupedNotes = useMemo(() => categories.reduce((acc, color) => { acc[color] = classifiedNotes.filter(n => n.color === color); return acc; }, {}), [classifiedNotes, categories]);
 
             // Stock data fetching effect - must be before early return to follow Rules of Hooks
             useEffect(() => {
@@ -1576,6 +1672,113 @@ const firebaseConfig = {
                     </div>
                 )}
 
+                {/* Add Category Modal */}
+                {showAddCategoryModal && (
+                    <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+                        <div className={`w-full max-w-md rounded-lg shadow-2xl ${darkMode ? 'bg-gray-800' : 'bg-white'}`}>
+                            <div className={`flex justify-between items-center p-4 border-b ${darkMode ? 'border-gray-700' : ''}`}>
+                                <h2 className={`text-xl font-bold ${darkMode ? 'text-white' : 'text-gray-800'}`}>Add New Category</h2>
+                                <button onClick={() => { setShowAddCategoryModal(false); setNewCategoryLabel(''); setNewCategoryColor(null); }} className={`${darkMode ? 'text-gray-400 hover:text-gray-200' : 'text-gray-600 hover:text-gray-800'}`}>
+                                    <X size={24}/>
+                                </button>
+                            </div>
+                            <div className="p-6">
+                                <div className="mb-4">
+                                    <label className={`block text-sm font-medium mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>Category Name</label>
+                                    <input
+                                        type="text"
+                                        value={newCategoryLabel}
+                                        onChange={(e) => setNewCategoryLabel(e.target.value)}
+                                        placeholder="Enter category name..."
+                                        className={`w-full px-3 py-2 border rounded-lg ${darkMode ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400' : 'bg-white border-gray-300 text-gray-800'}`}
+                                        maxLength={30}
+                                        autoFocus
+                                    />
+                                </div>
+                                <div className="mb-6">
+                                    <label className={`block text-sm font-medium mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>Select Color</label>
+                                    <div className="grid grid-cols-6 gap-2">
+                                        {getAvailableColors().map(color => (
+                                            <button
+                                                key={color}
+                                                onClick={() => setNewCategoryColor(color)}
+                                                className={`w-8 h-8 ${color} rounded-lg border-2 ${newCategoryColor === color ? 'border-blue-500 ring-2 ring-blue-300' : 'border-gray-300'} hover:scale-110 transition-transform`}
+                                            />
+                                        ))}
+                                    </div>
+                                    {getAvailableColors().length === 0 && (
+                                        <p className={`text-sm mt-2 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>No colors available. Delete a category to free up colors.</p>
+                                    )}
+                                </div>
+                                <div className="flex gap-3 justify-end">
+                                    <button
+                                        onClick={() => { setShowAddCategoryModal(false); setNewCategoryLabel(''); setNewCategoryColor(null); }}
+                                        className={`px-4 py-2 rounded-lg ${darkMode ? 'bg-gray-700 text-gray-300 hover:bg-gray-600' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+                                    >
+                                        Cancel
+                                    </button>
+                                    <button
+                                        onClick={() => newCategoryColor && addCategory(newCategoryColor, newCategoryLabel || 'New Category')}
+                                        disabled={!newCategoryColor}
+                                        className={`px-4 py-2 rounded-lg font-medium ${newCategoryColor ? 'bg-blue-500 text-white hover:bg-blue-600' : 'bg-gray-300 text-gray-500 cursor-not-allowed'}`}
+                                    >
+                                        Add Category
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* Reassign Notes Modal (when deleting category with notes) */}
+                {categoryToDelete && (
+                    <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+                        <div className={`w-full max-w-md rounded-lg shadow-2xl ${darkMode ? 'bg-gray-800' : 'bg-white'}`}>
+                            <div className={`flex justify-between items-center p-4 border-b ${darkMode ? 'border-gray-700' : ''}`}>
+                                <h2 className={`text-xl font-bold ${darkMode ? 'text-white' : 'text-gray-800'}`}>Reassign Notes</h2>
+                                <button onClick={() => { setCategoryToDelete(null); setReassignTarget(null); }} className={`${darkMode ? 'text-gray-400 hover:text-gray-200' : 'text-gray-600 hover:text-gray-800'}`}>
+                                    <X size={24}/>
+                                </button>
+                            </div>
+                            <div className="p-6">
+                                <div className={`mb-4 p-3 rounded-lg ${darkMode ? 'bg-yellow-900/30 border border-yellow-700' : 'bg-yellow-50 border border-yellow-200'}`}>
+                                    <p className={`text-sm ${darkMode ? 'text-yellow-200' : 'text-yellow-800'}`}>
+                                        The category "<strong>{colorLabels[categoryToDelete]}</strong>" contains <strong>{getNotesCountForCategory(categoryToDelete)}</strong> note(s).
+                                        Please select a category to move them to before deletion.
+                                    </p>
+                                </div>
+                                <div className="mb-6">
+                                    <label className={`block text-sm font-medium mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>Move notes to:</label>
+                                    <select
+                                        value={reassignTarget || ''}
+                                        onChange={(e) => setReassignTarget(e.target.value)}
+                                        className={`w-full px-3 py-2 border rounded-lg ${darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300 text-gray-800'}`}
+                                    >
+                                        {categories.filter(c => c !== categoryToDelete).map(c => (
+                                            <option key={c} value={c}>{colorLabels[c]}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                                <div className="flex gap-3 justify-end">
+                                    <button
+                                        onClick={() => { setCategoryToDelete(null); setReassignTarget(null); }}
+                                        className={`px-4 py-2 rounded-lg ${darkMode ? 'bg-gray-700 text-gray-300 hover:bg-gray-600' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+                                    >
+                                        Cancel
+                                    </button>
+                                    <button
+                                        onClick={confirmDeleteCategory}
+                                        disabled={!reassignTarget}
+                                        className={`px-4 py-2 rounded-lg font-medium ${reassignTarget ? 'bg-red-500 text-white hover:bg-red-600' : 'bg-gray-300 text-gray-500 cursor-not-allowed'}`}
+                                    >
+                                        Move & Delete
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
                 <div className={`min-h-screen p-8 ${darkMode ? 'bg-gradient-to-br from-gray-900 to-gray-800' : 'bg-gradient-to-br from-gray-100 to-gray-200'}`}>
                     <div className="flex gap-6 max-w-full mx-auto items-start">
                         <div className="flex-grow" style={{width: '75%'}}>
@@ -1765,12 +1968,62 @@ const firebaseConfig = {
                         <div className={`rounded-lg shadow-md p-3 mb-6 ${darkMode ? 'bg-gray-800' : 'bg-white'}`}>
                             <div className="flex flex-wrap items-center gap-4">
                                 <span className={`text-sm font-semibold ${darkMode ? 'text-white' : 'text-gray-700'}`}>Legend:</span>
-                                {COLORS.map(color => (
-                                    <div key={color} className="flex items-center gap-1.5">
-                                        <div className={`w-5 h-5 ${color} rounded border border-gray-300`}/>
-                                        {editingLabel === color ? <div className="flex items-center gap-1"><input type="text" value={tempLabel} onChange={(e) => setTempLabel(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && (setColorLabels({...colorLabels, [color]: tempLabel}), setEditingLabel(null))} className="border rounded px-1.5 py-0.5 text-xs w-20" autoFocus/><button onClick={() => (setColorLabels({...colorLabels, [color]: tempLabel}), setEditingLabel(null))} className="text-green-600"><Check size={12}/></button></div> : <div className="flex items-center gap-1"><span className={`text-xs ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>{colorLabels[color]}</span><button onClick={() => (setEditingLabel(color), setTempLabel(colorLabels[color]))} className="text-gray-400"><Edit2 size={11}/></button></div>}
+                                {categories.map(color => (
+                                    <div key={color} className="flex items-center gap-1.5 group relative">
+                                        {/* Color swatch - clickable to change color */}
+                                        <button
+                                            onClick={() => setEditingCategoryColor(editingCategoryColor === color ? null : color)}
+                                            className={`w-5 h-5 ${color} rounded border-2 ${editingCategoryColor === color ? 'border-blue-500' : 'border-gray-300'} hover:border-blue-400 cursor-pointer transition-all`}
+                                            title="Change color"
+                                        />
+                                        {/* Color picker dropdown */}
+                                        {editingCategoryColor === color && (
+                                            <div className={`absolute top-8 left-0 z-50 p-2 rounded-lg shadow-xl ${darkMode ? 'bg-gray-700' : 'bg-white'} border`}>
+                                                <div className="grid grid-cols-6 gap-1" style={{width: '156px'}}>
+                                                    {AVAILABLE_COLORS.filter(c => c === color || !categories.includes(c)).map(c => (
+                                                        <button
+                                                            key={c}
+                                                            onClick={() => changeCategoryColor(color, c)}
+                                                            className={`w-5 h-5 ${c} rounded border ${c === color ? 'border-blue-500 ring-2 ring-blue-300' : 'border-gray-300'} hover:scale-110 transition-transform`}
+                                                        />
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
+                                        {/* Label editing */}
+                                        {editingLabel === color ? (
+                                            <div className="flex items-center gap-1">
+                                                <input type="text" value={tempLabel} onChange={(e) => setTempLabel(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && (setColorLabels({...colorLabels, [color]: tempLabel}), setEditingLabel(null))} className="border rounded px-1.5 py-0.5 text-xs w-20" autoFocus/>
+                                                <button onClick={() => (setColorLabels({...colorLabels, [color]: tempLabel}), setEditingLabel(null))} className="text-green-600"><Check size={12}/></button>
+                                            </div>
+                                        ) : (
+                                            <div className="flex items-center gap-1">
+                                                <span className={`text-xs ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>{colorLabels[color]}</span>
+                                                <button onClick={() => (setEditingLabel(color), setTempLabel(colorLabels[color] || ''))} className="text-gray-400 hover:text-gray-600"><Edit2 size={11}/></button>
+                                            </div>
+                                        )}
+                                        {/* Delete button - only show if more than 1 category */}
+                                        {categories.length > MIN_CATEGORIES && (
+                                            <button
+                                                onClick={() => handleDeleteCategory(color)}
+                                                className="text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
+                                                title={`Delete ${colorLabels[color]} category`}
+                                            >
+                                                <X size={12}/>
+                                            </button>
+                                        )}
                                     </div>
                                 ))}
+                                {/* Add category button - only show if less than max */}
+                                {categories.length < MAX_CATEGORIES && (
+                                    <button
+                                        onClick={() => setShowAddCategoryModal(true)}
+                                        className={`flex items-center gap-1 px-2 py-1 rounded text-xs font-medium transition-colors ${darkMode ? 'bg-gray-700 text-gray-300 hover:bg-gray-600' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
+                                        title="Add new category"
+                                    >
+                                        <Plus size={12}/> Add
+                                    </button>
+                                )}
                             </div>
                         </div>
                         {unclassifiedNotes.length > 0 && (
@@ -1788,7 +2041,7 @@ const firebaseConfig = {
                                             <div className="mb-4">
                                                 <p className="text-sm font-bold text-gray-700 mb-2">Select Category:</p>
                                                 <div className="grid grid-cols-2 gap-2">
-                                                    {COLORS.map(color => (
+                                                    {categories.map(color => (
                                                         <button
                                                             key={color}
                                                             onClick={() => classifyNote(note.id, color)}
@@ -1807,7 +2060,7 @@ const firebaseConfig = {
                                 </div>
                             </div>
                         )}
-                        {COLORS.map(color => {
+                        {categories.map(color => {
                             const categoryNotes = groupedNotes[color];
                             if (!categoryNotes.length) return null;
                             return (
@@ -1824,7 +2077,7 @@ const firebaseConfig = {
                                                 <div key={note.id} className={`${note.color} p-6 rounded-lg shadow-lg relative hover:scale-105 transition-transform`} style={{minHeight: '200px'}}>
                                                     <div className="absolute top-2 right-2 flex gap-2">
                                                         <select value={note.color} onChange={(e) => setNotes(notes.map(n => n.id === note.id ? {...n, color: e.target.value} : n))} className="bg-white bg-opacity-70 border rounded px-2 py-1 text-xs">
-                                                            {COLORS.map(c => <option key={c} value={c}>{colorLabels[c]}</option>)}
+                                                            {categories.map(c => <option key={c} value={c}>{colorLabels[c]}</option>)}
                                                         </select>
                                                         <button onClick={() => deleteNote(note.id)} className="text-gray-600 hover:text-gray-800"><X size={18}/></button>
                                                     </div>
