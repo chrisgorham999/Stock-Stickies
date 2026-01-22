@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://unpkg.com https://www.gstatic.com https://cdn.jsdelivr.net https://cdn.tailwindcss.com; style-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com; img-src 'self' data: https: blob:; connect-src 'self' https://finnhub.io https://api.marketaux.com https://*.firebaseio.com https://*.googleapis.com https://*.firebaseapp.com https://*.google.com; font-src 'self' data: https:; frame-src 'self' https:; object-src 'none'; base-uri 'self'; form-action 'self';">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://unpkg.com https://www.gstatic.com https://cdn.jsdelivr.net https://cdn.tailwindcss.com; style-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com; img-src 'self' data: https: blob:; connect-src 'self' https://finnhub.io https://api.marketaux.com https://*.firebaseio.com https://*.googleapis.com https://*.firebaseapp.com https://*.google.com https://firebase.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com wss://*.firebaseio.com; font-src 'self' data: https:; frame-src 'self' https:; object-src 'none'; base-uri 'self'; form-action 'self';">
     <title>Stock Stickies</title>
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><defs><linearGradient id='g' x1='0%25' y1='0%25' x2='100%25' y2='100%25'><stop offset='0%25' style='stop-color:%23fff59d'/><stop offset='100%25' style='stop-color:%23ffeb3b'/></linearGradient></defs><path d='M5 5 h90 v70 l-20 20 h-70 z' fill='url(%23g)'/><path d='M75 75 v20 l20-20 z' fill='%23fdd835'/><line x1='15' y1='25' x2='75' y2='25' stroke='%23bdbdbd' stroke-width='2'/><line x1='15' y1='40' x2='75' y2='40' stroke='%23bdbdbd' stroke-width='2'/><line x1='15' y1='55' x2='60' y2='55' stroke='%23bdbdbd' stroke-width='2'/></svg>">
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
@@ -342,11 +342,11 @@ const firebaseConfig = {
                 if (!currentUser || !db || !auth.currentUser) return;
                 const userId = auth.currentUser.uid;
                 const unsubscribe = db.collection('users').doc(userId)
-                    .onSnapshot(async (doc) => {
+                    .onSnapshot((doc) => {
                         if (doc.exists && !isSavingRef.current) {
                             const data = doc.data();
                             
-                            // Load non-API key data immediately (don't wait for decryption)
+                            // Load all data immediately
                             setNotes(data.notes || []);
                             setColorLabels(data.colorLabels || DEFAULT_COLOR_LABELS);
                             setNextId(data.nextId || 1);
@@ -355,28 +355,40 @@ const firebaseConfig = {
                             setWatchList(data.watchList || []);
                             setNickname(data.nickname || '');
                             
-                            // Decrypt API keys asynchronously (non-blocking)
-                            // This prevents slow login if decryption takes time
-                            decryptApiKey(data.finnhubApiKey, userId).then(decrypted => {
-                                setFinnhubApiKey(decrypted || '');
-                            }).catch(err => {
-                                console.error('Failed to decrypt Finnhub key:', err);
-                                // Fallback: try as plain string
-                                if (typeof data.finnhubApiKey === 'string') {
-                                    setFinnhubApiKey(data.finnhubApiKey);
+                            // Handle API keys - support both encrypted and plain text formats
+                            // Try to decrypt, but fallback to plain string if decryption fails or data is plain text
+                            const handleApiKey = async (apiKeyData, setter) => {
+                                if (!apiKeyData) {
+                                    setter('');
+                                    return;
                                 }
-                            });
+                                
+                                // If it's already a plain string, use it directly
+                                if (typeof apiKeyData === 'string') {
+                                    setter(apiKeyData);
+                                    return;
+                                }
+                                
+                                // If it's an object, try to decrypt
+                                if (typeof apiKeyData === 'object' && apiKeyData.encrypted && apiKeyData.iv) {
+                                    try {
+                                        const decrypted = await decryptApiKey(apiKeyData, userId);
+                                        setter(decrypted || '');
+                                    } catch (err) {
+                                        console.error('Decryption error:', err);
+                                        setter(''); // Clear on error
+                                    }
+                                } else {
+                                    setter(''); // Unknown format
+                                }
+                            };
                             
-                            decryptApiKey(data.marketauxApiKey, userId).then(decrypted => {
-                                setMarketauxApiKey(decrypted || '');
-                            }).catch(err => {
-                                console.error('Failed to decrypt MarketAux key:', err);
-                                // Fallback: try as plain string
-                                if (typeof data.marketauxApiKey === 'string') {
-                                    setMarketauxApiKey(data.marketauxApiKey);
-                                }
-                            });
+                            // Decrypt API keys asynchronously (non-blocking)
+                            handleApiKey(data.finnhubApiKey, setFinnhubApiKey);
+                            handleApiKey(data.marketauxApiKey, setMarketauxApiKey);
                         }
+                    }, (error) => {
+                        console.error('Firestore snapshot error:', error);
                     });
                 return () => unsubscribe();
             }, [currentUser]);
@@ -392,8 +404,6 @@ const firebaseConfig = {
                         setSyncStatus('syncing');
                         const userId = auth.currentUser.uid;
                         
-                        // Only encrypt if we have API keys and encryption succeeds
-                        // Use update with merge to preserve existing encrypted data if encryption fails
                         const updateData = {
                             notes, 
                             colorLabels, 
@@ -405,29 +415,37 @@ const firebaseConfig = {
                             updatedAt: firebase.firestore.FieldValue.serverTimestamp()
                         };
                         
-                        // Encrypt API keys before storing (only if they exist and encryption succeeds)
+                        // Try to encrypt API keys, but fallback to plain text if encryption fails
+                        // This ensures data is always saved even if encryption has issues
                         if (finnhubApiKey) {
-                            const encrypted = await encryptApiKey(finnhubApiKey, userId);
-                            if (encrypted) {
-                                updateData.finnhubApiKey = encrypted;
+                            try {
+                                const encrypted = await encryptApiKey(finnhubApiKey, userId);
+                                updateData.finnhubApiKey = encrypted || finnhubApiKey; // Fallback to plain text
+                            } catch (err) {
+                                console.warn('Encryption failed, storing as plain text:', err);
+                                updateData.finnhubApiKey = finnhubApiKey; // Store as plain text on error
                             }
                         } else {
-                            updateData.finnhubApiKey = null; // Clear if empty
+                            updateData.finnhubApiKey = null;
                         }
                         
                         if (marketauxApiKey) {
-                            const encrypted = await encryptApiKey(marketauxApiKey, userId);
-                            if (encrypted) {
-                                updateData.marketauxApiKey = encrypted;
+                            try {
+                                const encrypted = await encryptApiKey(marketauxApiKey, userId);
+                                updateData.marketauxApiKey = encrypted || marketauxApiKey; // Fallback to plain text
+                            } catch (err) {
+                                console.warn('Encryption failed, storing as plain text:', err);
+                                updateData.marketauxApiKey = marketauxApiKey; // Store as plain text on error
                             }
                         } else {
-                            updateData.marketauxApiKey = null; // Clear if empty
+                            updateData.marketauxApiKey = null;
                         }
                         
                         db.collection('users').doc(userId).set(updateData, { merge: false }).then(() => {
                             setSyncStatus('synced');
                             setTimeout(() => { isSavingRef.current = false; }, 1000);
-                        }).catch(() => {
+                        }).catch((err) => {
+                            console.error('Firestore save error:', err);
                             setSyncStatus('offline');
                             isSavingRef.current = false;
                         });
@@ -456,22 +474,33 @@ const firebaseConfig = {
                             updatedAt: firebase.firestore.FieldValue.serverTimestamp()
                         };
                         
-                        // Only encrypt if we have API keys and encryption succeeds
+                        // Try to encrypt, but fallback to plain text if encryption fails
                         if (finnhubApiKey) {
-                            const encrypted = await encryptApiKey(finnhubApiKey, userId);
-                            if (encrypted) {
-                                updateData.finnhubApiKey = encrypted;
+                            try {
+                                const encrypted = await encryptApiKey(finnhubApiKey, userId);
+                                updateData.finnhubApiKey = encrypted || finnhubApiKey;
+                            } catch (err) {
+                                updateData.finnhubApiKey = finnhubApiKey;
                             }
+                        } else {
+                            updateData.finnhubApiKey = null;
                         }
                         
                         if (marketauxApiKey) {
-                            const encrypted = await encryptApiKey(marketauxApiKey, userId);
-                            if (encrypted) {
-                                updateData.marketauxApiKey = encrypted;
+                            try {
+                                const encrypted = await encryptApiKey(marketauxApiKey, userId);
+                                updateData.marketauxApiKey = encrypted || marketauxApiKey;
+                            } catch (err) {
+                                updateData.marketauxApiKey = marketauxApiKey;
                             }
+                        } else {
+                            updateData.marketauxApiKey = null;
                         }
                         
-                        db.collection('users').doc(userId).set(updateData, { merge: false });
+                        // Use sendBeacon or fire-and-forget to avoid blocking page unload
+                        db.collection('users').doc(userId).set(updateData, { merge: false }).catch(() => {
+                            // Ignore errors on unload
+                        });
                     }
                 };
 
@@ -530,22 +559,32 @@ const firebaseConfig = {
                         updatedAt: firebase.firestore.FieldValue.serverTimestamp()
                     };
                     
-                    // Only encrypt if we have API keys and encryption succeeds
+                    // Try to encrypt, but fallback to plain text if encryption fails
                     if (finnhubApiKey) {
-                        const encrypted = await encryptApiKey(finnhubApiKey, userId);
-                        if (encrypted) {
-                            updateData.finnhubApiKey = encrypted;
+                        try {
+                            const encrypted = await encryptApiKey(finnhubApiKey, userId);
+                            updateData.finnhubApiKey = encrypted || finnhubApiKey;
+                        } catch (err) {
+                            updateData.finnhubApiKey = finnhubApiKey; // Store as plain text on error
                         }
+                    } else {
+                        updateData.finnhubApiKey = null;
                     }
                     
                     if (marketauxApiKey) {
-                        const encrypted = await encryptApiKey(marketauxApiKey, userId);
-                        if (encrypted) {
-                            updateData.marketauxApiKey = encrypted;
+                        try {
+                            const encrypted = await encryptApiKey(marketauxApiKey, userId);
+                            updateData.marketauxApiKey = encrypted || marketauxApiKey;
+                        } catch (err) {
+                            updateData.marketauxApiKey = marketauxApiKey; // Store as plain text on error
                         }
+                    } else {
+                        updateData.marketauxApiKey = null;
                     }
                     
-                    db.collection('users').doc(userId).set(updateData, { merge: false });
+                    db.collection('users').doc(userId).set(updateData, { merge: false }).catch(err => {
+                        console.error('Sync error:', err);
+                    });
                 }
             };
 
