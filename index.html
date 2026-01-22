@@ -1017,13 +1017,13 @@ const firebaseConfig = {
                 notes.filter(n => n.title && n.shares && n.shares > 0),
             [notes]);
 
-            // Portfolio price fetching effect - only updates at 10am EST and 4pm EST
+            // Portfolio price fetching effect - updates at 9:35am, 1pm, and 4:05pm EST
             useEffect(() => {
                 if (!finnhubApiKey || portfolioNotes.length === 0) return;
 
                 let isMounted = true;
 
-                // Check if we should fetch prices (10am or 4pm EST windows, or no cached data)
+                // Check if we should fetch prices (9:35am, 1pm, or 4:05pm EST windows, or no cached data)
                 const shouldFetchPrices = () => {
                     const cacheKey = 'portfolio_prices_cache';
                     const cached = localStorage.getItem(cacheKey);
@@ -1035,10 +1035,15 @@ const firebaseConfig = {
                     const estTime = new Date(utc + (3600000 * estOffset));
                     const estHour = estTime.getHours();
                     const estMinutes = estTime.getMinutes();
+                    const totalMinutes = estHour * 60 + estMinutes;
 
-                    // Define fetch windows: 10:00-10:15 EST and 16:00-16:15 EST
-                    const isMorningWindow = estHour === 10 && estMinutes < 15;
-                    const isAfternoonWindow = estHour === 16 && estMinutes < 15;
+                    // Define fetch windows (15-minute windows):
+                    // - Market open: 9:35-9:50 EST (575-590 minutes)
+                    // - Mid day: 13:00-13:15 EST (780-795 minutes)
+                    // - Market close: 16:05-16:20 EST (965-980 minutes)
+                    const isMarketOpenWindow = totalMinutes >= 575 && totalMinutes < 590;
+                    const isMiddayWindow = totalMinutes >= 780 && totalMinutes < 795;
+                    const isMarketCloseWindow = totalMinutes >= 965 && totalMinutes < 980;
 
                     if (!cached) {
                         return { shouldFetch: true, cachedPrices: null };
@@ -1051,17 +1056,18 @@ const firebaseConfig = {
 
                         // Determine current window identifier
                         const today = estTime.toISOString().split('T')[0];
-                        const currentWindow = isMorningWindow ? `${today}-10am` :
-                                             isAfternoonWindow ? `${today}-4pm` : null;
+                        const currentWindow = isMarketOpenWindow ? `${today}-935am` :
+                                             isMiddayWindow ? `${today}-1pm` :
+                                             isMarketCloseWindow ? `${today}-405pm` : null;
 
                         // Fetch if: in a fetch window AND haven't fetched this window yet
-                        // OR if cache is older than 12 hours (stale data)
-                        if ((isMorningWindow || isAfternoonWindow) && fetchedWindow !== currentWindow) {
+                        // OR if cache is older than 8 hours (stale data)
+                        if ((isMarketOpenWindow || isMiddayWindow || isMarketCloseWindow) && fetchedWindow !== currentWindow) {
                             return { shouldFetch: true, cachedPrices: prices, currentWindow };
                         }
 
-                        // Use cached data if less than 12 hours old
-                        if (cacheAge < 12 * oneHour) {
+                        // Use cached data if less than 8 hours old
+                        if (cacheAge < 8 * oneHour) {
                             return { shouldFetch: false, cachedPrices: prices };
                         }
 
