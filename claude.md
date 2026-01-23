@@ -112,6 +112,13 @@ The missing labels repair was running before colorLabels loaded from Firestore.
 - Added `isLoadingRef` check to missing labels repair useEffect
 - Repair now skips during initial data load
 
+### Problem: Categories and notes lost on logout/login
+The auto-save useEffect (line 437) was missing `categories` in updateData object.
+
+### Solution
+- Added `categories` to updateData in auto-save useEffect (line 440)
+- Now all three save locations include categories: syncNow, auto-save, beforeunload
+
 ## Color System
 Categories use Tailwind CSS background classes:
 ```javascript

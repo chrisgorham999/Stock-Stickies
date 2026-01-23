@@ -435,12 +435,13 @@ const firebaseConfig = {
                         const userId = auth.currentUser.uid;
                         
                         const updateData = {
-                            notes, 
-                            colorLabels, 
-                            nextId, 
-                            collapsedCategories, 
-                            darkMode, 
-                            watchList, 
+                            notes,
+                            colorLabels,
+                            categories,
+                            nextId,
+                            collapsedCategories,
+                            darkMode,
+                            watchList,
                             nickname,
                             updatedAt: firebase.firestore.FieldValue.serverTimestamp()
                         };
