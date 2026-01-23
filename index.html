@@ -301,6 +301,7 @@ const firebaseConfig = {
             const [resetSuccess, setResetSuccess] = useState(false);
             const [syncStatus, setSyncStatus] = useState('synced');
             const isSavingRef = useRef(false);
+            const isLoadingRef = useRef(false);
             const saveTimeoutRef = useRef(null);
             const [notes, setNotes] = useState([]);
             const [nextId, setNextId] = useState(1);
@@ -367,16 +368,22 @@ const firebaseConfig = {
                     .onSnapshot((doc) => {
                         if (doc.exists && !isSavingRef.current) {
                             const data = doc.data();
-                            
-                            // Load all data immediately
-                            setNotes(data.notes || []);
-                            setColorLabels(data.colorLabels || DEFAULT_COLOR_LABELS);
+
+                            // Set loading flag to prevent orphan repair during data load
+                            isLoadingRef.current = true;
+
+                            // Load all data immediately - categories FIRST, then notes
                             setCategories(data.categories || DEFAULT_COLORS);
+                            setColorLabels(data.colorLabels || DEFAULT_COLOR_LABELS);
+                            setNotes(data.notes || []);
                             setNextId(data.nextId || 1);
                             setCollapsedCategories(data.collapsedCategories || {});
                             setDarkMode(data.darkMode || false);
                             setWatchList(data.watchList || []);
                             setNickname(data.nickname || '');
+
+                            // Reset loading flag after state updates settle
+                            setTimeout(() => { isLoadingRef.current = false; }, 200);
                             
                             // Handle API keys - support both encrypted and plain text formats
                             // Try to decrypt, but fallback to plain string if decryption fails or data is plain text
@@ -571,7 +578,7 @@ const firebaseConfig = {
             const syncNow = async () => {
                 if (currentUser && auth.currentUser && db) {
                     const userId = auth.currentUser.uid;
-                    
+
                     const updateData = {
                         notes,
                         colorLabels,
@@ -583,7 +590,7 @@ const firebaseConfig = {
                         nickname,
                         updatedAt: firebase.firestore.FieldValue.serverTimestamp()
                     };
-                    
+
                     // Try to encrypt, but fallback to plain text if encryption fails
                     if (finnhubApiKey) {
                         try {
@@ -595,7 +602,7 @@ const firebaseConfig = {
                     } else {
                         updateData.finnhubApiKey = null;
                     }
-                    
+
                     if (marketauxApiKey) {
                         try {
                             const encrypted = await encryptApiKey(marketauxApiKey, userId);
@@ -606,10 +613,13 @@ const firebaseConfig = {
                     } else {
                         updateData.marketauxApiKey = null;
                     }
-                    
-                    db.collection('users').doc(userId).set(updateData, { merge: false }).catch(err => {
+
+                    try {
+                        await db.collection('users').doc(userId).set(updateData, { merge: false });
+                        console.log('Sync completed successfully');
+                    } catch (err) {
                         console.error('Sync error:', err);
-                    });
+                    }
                 }
             };
 
@@ -639,10 +649,14 @@ const firebaseConfig = {
             };
 
             const handleLogout = async () => {
-                syncNow();
+                // Wait for sync to complete before logging out
+                await syncNow();
                 if (auth) await auth.signOut();
                 setCurrentUser(null);
                 setNotes([]);
+                // Reset categories to defaults on logout
+                setCategories(DEFAULT_COLORS);
+                setColorLabels(DEFAULT_COLOR_LABELS);
             };
 
             const classifyNote = (noteId, color) => {
@@ -746,8 +760,8 @@ const firebaseConfig = {
 
             // Detect orphaned notes (notes with colors not in categories) and auto-repair them
             useEffect(() => {
-                // Skip if we're in the middle of an intentional color change
-                if (isChangingColorRef.current) return;
+                // Skip if we're in the middle of an intentional color change or loading data
+                if (isChangingColorRef.current || isLoadingRef.current) return;
 
                 const orphanedNotes = classifiedNotes.filter(n => !categories.includes(n.color));
                 if (orphanedNotes.length > 0 && categories.length > 0) {
