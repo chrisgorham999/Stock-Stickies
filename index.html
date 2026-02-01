@@ -671,6 +671,12 @@ const firebaseConfig = {
                                 clonedDoc.querySelectorAll('.snapshot-hide').forEach((el) => {
                                     el.style.display = 'none';
                                 });
+                                clonedDoc.querySelectorAll('.snapshot-only').forEach((el) => {
+                                    el.style.display = 'inline';
+                                });
+                                clonedDoc.querySelectorAll('.snapshot-timestamp').forEach((el) => {
+                                    el.textContent = `(${new Date().toLocaleString()})`;
+                                });
                                 clonedDoc.querySelectorAll('.portfolio-title').forEach((el) => {
                                     el.style.color = '#e5e7eb';
                                     el.style.webkitTextFillColor = '#e5e7eb';
@@ -2403,6 +2409,7 @@ const firebaseConfig = {
                                                 </div>
                                                 <h3 className={`text-xl font-bold tracking-tight portfolio-title ${darkMode ? 'text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-purple-400 to-pink-400' : 'text-gray-800'}`} style={darkMode ? {textShadow: '0 0 20px rgba(6, 182, 212, 0.4)'} : {}}>
                                                     {nickname || currentUser?.split('@')[0] || 'User'}'s Portfolio
+                                                    <span className="snapshot-only snapshot-timestamp text-sm font-semibold ml-2"></span>
                                                 </h3>
                                             </div>
                                             <button
