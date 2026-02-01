@@ -675,7 +675,23 @@ const firebaseConfig = {
 
                     const rect = card.getBoundingClientRect();
                     const clone = card.cloneNode(true);
+                    const chartCanvas = chartRef.current;
+                    const chartDataUrl = chartCanvas ? chartCanvas.toDataURL('image/png') : null;
                     inlineComputedStyles(card, clone);
+                    if (chartDataUrl) {
+                        const originalCanvas = clone.querySelector('canvas');
+                        if (originalCanvas) {
+                            const canvasRect = originalCanvas.getBoundingClientRect();
+                            const imageReplacement = document.createElement('img');
+                            imageReplacement.src = chartDataUrl;
+                            imageReplacement.width = canvasRect.width;
+                            imageReplacement.height = canvasRect.height;
+                            imageReplacement.style.width = `${canvasRect.width}px`;
+                            imageReplacement.style.height = `${canvasRect.height}px`;
+                            imageReplacement.style.display = 'block';
+                            originalCanvas.replaceWith(imageReplacement);
+                        }
+                    }
                     clone.style.margin = '0';
 
                     const container = document.createElement('div');
@@ -2378,7 +2394,7 @@ const firebaseConfig = {
                         </div>
 
                         {/* Watch List Panel */}
-                        <div className={`flex-shrink-0 ${darkMode ? 'bg-gray-800' : 'bg-white'} rounded-lg shadow-lg flex flex-col mt-6`} style={{width: '30%', maxHeight: 'calc(100vh - 9rem)'}}>
+                        <div className={`flex-shrink-0 ${darkMode ? 'bg-gray-800' : 'bg-white'} rounded-lg shadow-lg flex flex-col`} style={{width: '30%', maxHeight: 'calc(100vh - 9rem)', marginTop: '96px'}}>
                             <div className="p-6 pb-4">
                                 <h3 className={`text-lg font-semibold mb-4 ${darkMode ? 'text-white' : 'text-gray-800'}`}>Watch List</h3>
                                 <div className="flex gap-2">
