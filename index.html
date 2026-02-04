@@ -2302,6 +2302,21 @@ const firebaseConfig = {
                                             style={{width: '200px'}}
                                             maxLength={MAX_API_KEY_LENGTH}
                                         />
+                                        <div className="relative group">
+                                            <span className="inline-flex h-6 w-6 items-center justify-center rounded-full border border-gray-500 text-gray-300 text-xs font-bold cursor-default">
+                                                ?
+                                            </span>
+                                            <div className="absolute left-1/2 -translate-x-1/2 mt-3 w-72 rounded-lg border border-gray-700 bg-gray-900 text-gray-200 text-xs p-3 shadow-xl opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto transition-opacity z-20">
+                                                <p className="font-semibold text-white mb-2">How to get a Finnhub API key</p>
+                                                <ol className="list-decimal list-inside space-y-1">
+                                                    <li>Create a free account at finnhub.io.</li>
+                                                    <li>Verify your email and sign in.</li>
+                                                    <li>Open your dashboard and copy the API key.</li>
+                                                    <li>Paste it here.</li>
+                                                </ol>
+                                                <a href="https://finnhub.io/register" target="_blank" rel="noopener noreferrer" className="mt-2 inline-block text-cyan-400 hover:text-cyan-300">Open Finnhub</a>
+                                            </div>
+                                        </div>
                                     </div>
                                 )}
                                 {showApiKeySuccess && (
@@ -2334,6 +2349,21 @@ const firebaseConfig = {
                                             style={{width: '200px'}}
                                             maxLength={MAX_API_KEY_LENGTH}
                                         />
+                                        <div className="relative group">
+                                            <span className="inline-flex h-6 w-6 items-center justify-center rounded-full border border-gray-500 text-gray-300 text-xs font-bold cursor-default">
+                                                ?
+                                            </span>
+                                            <div className="absolute left-1/2 -translate-x-1/2 mt-3 w-72 rounded-lg border border-gray-700 bg-gray-900 text-gray-200 text-xs p-3 shadow-xl opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto transition-opacity z-20">
+                                                <p className="font-semibold text-white mb-2">How to get a MarketAux API key</p>
+                                                <ol className="list-decimal list-inside space-y-1">
+                                                    <li>Create a free account at marketaux.com.</li>
+                                                    <li>Verify your email and sign in.</li>
+                                                    <li>Go to your API settings and copy the API token.</li>
+                                                    <li>Paste it here.</li>
+                                                </ol>
+                                                <a href="https://www.marketaux.com/register" target="_blank" rel="noopener noreferrer" className="mt-2 inline-block text-cyan-400 hover:text-cyan-300">Open MarketAux</a>
+                                            </div>
+                                        </div>
                                     </div>
                                 )}
                                 <button onClick={() => setDarkMode(!darkMode)} className="flex items-center gap-2 bg-gray-700 hover:bg-gray-800 text-white px-4 py-3 rounded-lg shadow-lg">{darkMode ? <Sun size={20}/> : <Moon size={20}/>}</button>
