@@ -1391,16 +1391,18 @@ const firebaseConfig = {
                         '#EC4899', '#06B6D4', '#84CC16', '#F97316', '#6366F1'
                     ];
 
-                    // Separate large slices (>=5%) from small ones, combine small into "Others"
-                    const largeSlices = portfolioData.filter(h => h.percentage >= 5);
-                    const smallSlices = portfolioData.filter(h => h.percentage < 5);
+                    // Separate large slices (>=3%) from small ones, combine small into "Others"
+                    // Lower threshold = more visible slices in the pie.
+                    const SLICE_THRESHOLD_PCT = 3;
+                    const largeSlices = portfolioData.filter(h => h.percentage >= SLICE_THRESHOLD_PCT);
+                    const smallSlices = portfolioData.filter(h => h.percentage < SLICE_THRESHOLD_PCT);
                     const othersValue = smallSlices.reduce((sum, h) => sum + h.value, 0);
                     const othersPercentage = smallSlices.reduce((sum, h) => sum + h.percentage, 0);
 
                     // Build chart data: large slices + "Others" if there are small slices
                     const chartLabels = largeSlices.map(h => h.ticker);
                     const chartValues = largeSlices.map(h => h.value);
-                    const chartColors = colors.slice(0, largeSlices.length);
+                    const chartColors = largeSlices.map((_, i) => colors[i % colors.length]);
 
                     if (smallSlices.length > 0) {
                         chartLabels.push('Others');
@@ -1423,11 +1425,9 @@ const firebaseConfig = {
                         options: {
                             responsive: true,
                             maintainAspectRatio: false,
-                            // Make the pie a bit larger within the canvas so more labels can fit
                             layout: {
-                                padding: 12
+                                padding: 30
                             },
-                            radius: '95%',
                             plugins: {
                                 legend: {
                                     display: true,
@@ -1435,7 +1435,8 @@ const firebaseConfig = {
                                     labels: {
                                         color: darkMode ? '#ffffff' : '#374151',
                                         font: { size: 12, weight: 'bold' },
-                                        padding: 20,
+                                        padding: 10,
+                                        boxWidth: 10,
                                         usePointStyle: true,
                                         pointStyle: 'circle',
                                         generateLabels: (chart) => {
@@ -1444,7 +1445,9 @@ const firebaseConfig = {
                                                 const valueText = hidePortfolioValues ? '•••••' : `$${h.value.toLocaleString(undefined, {minimumFractionDigits: 0, maximumFractionDigits: 0})}`;
                                                 return {
                                                     text: `${h.ticker} - ${h.percentage.toFixed(1)}% - ${valueText}`,
-                                                    fillStyle: h.percentage >= 5 ? colors[largeSlices.findIndex(ls => ls.ticker === h.ticker)] : '#9CA3AF',
+                                                    fillStyle: h.percentage >= SLICE_THRESHOLD_PCT
+                                                        ? colors[Math.max(0, largeSlices.findIndex(ls => ls.ticker === h.ticker)) % colors.length]
+                                                        : '#9CA3AF',
                                                     strokeStyle: darkMode ? '#1f2937' : '#ffffff',
                                                     fontColor: darkMode ? '#ffffff' : '#374151',
                                                     lineWidth: 1,
@@ -2745,7 +2748,7 @@ const firebaseConfig = {
                                                 Snapshot
                                             </button>
                                         </div>
-                                        <div style={{height: '620px'}}>
+                                        <div style={{height: '560px'}}>
                                             <canvas ref={chartRef}></canvas>
                                         </div>
                                     </div>
