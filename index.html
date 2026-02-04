@@ -1919,7 +1919,54 @@ const firebaseConfig = {
                                 </div>
 
                                 <div className="space-y-2">
-                                    <h3 className="text-white font-semibold text-base">3) Customize categories</h3>
+                                    <h3 className="text-white font-semibold text-base">3) Sort notes by position size (optional)</h3>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
+                                        <div className="space-y-2">
+                                            <ol className="list-decimal list-inside space-y-1 text-gray-300">
+                                                <li>In the Notes tab, use the <span className="text-white font-semibold">Sort</span> toggle.</li>
+                                                <li>Select <span className="text-white font-semibold">Largest position</span> to order notes by market value (shares × price).</li>
+                                                <li>Tip: Add your <span className="text-white font-semibold">Finnhub API key</span> to enable market value sorting.</li>
+                                            </ol>
+                                        </div>
+                                        <div className="rounded-xl border border-gray-700 bg-gray-950/40 p-3 -mt-1">
+                                            <svg viewBox="0 0 520 220" width="100%" height="auto" xmlns="http://www.w3.org/2000/svg">
+                                                <rect x="10" y="12" width="500" height="196" rx="14" fill="#0b1220" stroke="#334155" />
+
+                                                <rect x="28" y="44" width="250" height="132" rx="14" fill="#0f172a" stroke="#334155" />
+                                                <text x="46" y="74" font-size="14" font-weight="800" fill="#e5e7eb">Functionality Panel</text>
+
+                                                <rect x="46" y="92" width="110" height="34" rx="10" fill="#3b82f6" />
+                                                <text x="101" y="114" text-anchor="middle" font-size="13" font-weight="800" fill="#ffffff">New Note</text>
+
+                                                <text x="172" y="114" font-size="12" font-weight="700" fill="#94a3b8">Sort</text>
+                                                <rect x="200" y="92" width="190" height="34" rx="10" fill="#111827" stroke="#334155" />
+
+                                                <rect x="206" y="98" width="72" height="22" rx="8" fill="#0b1220" stroke="#475569" />
+                                                <text x="242" y="113" text-anchor="middle" font-size="11" font-weight="800" fill="#94a3b8">Default</text>
+
+                                                <rect x="282" y="98" width="102" height="22" rx="8" fill="#0b1220" stroke="#22c55e" />
+                                                <text x="333" y="113" text-anchor="middle" font-size="11" font-weight="800" fill="#e5e7eb">Largest position</text>
+
+                                                <path d="M400 110 L478 110" stroke="#22c55e" stroke-width="4" marker-end="url(#arrowSort)" />
+                                                <defs>
+                                                    <marker id="arrowSort" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto">
+                                                        <path d="M0,0 L12,6 L0,12 z" fill="#22c55e" />
+                                                    </marker>
+                                                </defs>
+
+                                                <rect x="300" y="64" width="190" height="112" rx="14" fill="#0f172a" stroke="#334155" />
+                                                <text x="314" y="88" font-size="12" font-weight="800" fill="#e5e7eb">Notes</text>
+                                                <rect x="314" y="98" width="162" height="14" rx="7" fill="#bbf7d0" opacity="0.7" />
+                                                <rect x="314" y="118" width="128" height="14" rx="7" fill="#fde68a" opacity="0.7" />
+                                                <rect x="314" y="138" width="92" height="14" rx="7" fill="#93c5fd" opacity="0.7" />
+                                                <text x="314" y="168" font-size="11" fill="#94a3b8">Largest positions rise to the top</text>
+                                            </svg>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="space-y-2">
+                                    <h3 className="text-white font-semibold text-base">4) Customize categories</h3>
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
                                         <div className="space-y-2">
                                             <ol className="list-decimal list-inside space-y-1 text-gray-300">
