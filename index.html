@@ -370,6 +370,7 @@ const firebaseConfig = {
             });
             const [portfolioLoading, setPortfolioLoading] = useState(false);
             const [mainTab, setMainTab] = useState('notes');
+            const [notesSortMode, setNotesSortMode] = useState('default'); // 'default' | 'positionValue'
             const chartRef = useRef(null);
             const chartInstance = useRef(null);
 
@@ -1005,7 +1006,50 @@ const firebaseConfig = {
             // Compute derived state - must be before early return to follow Rules of Hooks
             const unclassifiedNotes = useMemo(() => notes.filter(n => !n.classified), [notes]);
             const classifiedNotes = useMemo(() => notes.filter(n => n.classified), [notes]);
-            const groupedNotes = useMemo(() => categories.reduce((acc, color) => { acc[color] = classifiedNotes.filter(n => n.color === color); return acc; }, {}), [classifiedNotes, categories]);
+
+            // Notes display ordering (optional): sort by position market value (shares * latest price)
+            const sortedClassifiedNotes = useMemo(() => {
+                if (notesSortMode !== 'positionValue') return classifiedNotes;
+
+                const getTicker = (n) => (n.title || '').trim().toUpperCase();
+                const getShares = (n) => (typeof n.shares === 'number' ? n.shares : parseFloat(n.shares)) || 0;
+                const getPrice = (ticker) => {
+                    const p = portfolioPrices[ticker];
+                    return typeof p === 'number' ? p : 0;
+                };
+
+                const copy = [...classifiedNotes];
+                copy.sort((a, b) => {
+                    const aShares = getShares(a);
+                    const bShares = getShares(b);
+                    const aIsPos = aShares > 0;
+                    const bIsPos = bShares > 0;
+                    if (aIsPos !== bIsPos) return aIsPos ? -1 : 1; // positions above non-positions
+
+                    // Unknown price positions should still appear above non-positions, but below priced positions
+                    const aTicker = getTicker(a);
+                    const bTicker = getTicker(b);
+                    const aPrice = getPrice(aTicker);
+                    const bPrice = getPrice(bTicker);
+                    const aHasPrice = aPrice > 0;
+                    const bHasPrice = bPrice > 0;
+                    if (aIsPos && bIsPos && aHasPrice !== bHasPrice) return aHasPrice ? -1 : 1;
+
+                    const aValue = aShares * aPrice;
+                    const bValue = bShares * bPrice;
+                    if (bValue !== aValue) return bValue - aValue;
+
+                    // Stable tie-breakers
+                    if (aTicker !== bTicker) return aTicker.localeCompare(bTicker);
+                    return (a.id || 0) - (b.id || 0);
+                });
+                return copy;
+            }, [classifiedNotes, notesSortMode, portfolioPrices]);
+
+            const groupedNotes = useMemo(() => categories.reduce((acc, color) => {
+                acc[color] = sortedClassifiedNotes.filter(n => n.color === color);
+                return acc;
+            }, {}), [sortedClassifiedNotes, categories]);
 
             // Detect orphaned notes (notes with colors not in categories) and auto-repair them
             useEffect(() => {
@@ -2639,7 +2683,6 @@ const firebaseConfig = {
                                 </div>
                             </div>
                             <div className="flex gap-3 items-center">
-                                <button onClick={() => { setNotes([{id: nextId, title: '', text: '', color: UNCLASSIFIED_COLOR, classified: false}, ...notes]); setNextId(nextId + 1); }} className="flex items-center gap-2 bg-blue-500 hover:bg-blue-600 text-white px-6 py-3 rounded-lg shadow-lg"><Plus size={20}/>New Note</button>
                                 {!finnhubApiKey && (
                                     <div className="flex items-center gap-2">
                                         <input
@@ -2850,6 +2893,49 @@ const firebaseConfig = {
                                 )}
                             </div>
                         </div>
+
+                        {/* Functionality Panel (below legend, above notes) */}
+                        <div className={`rounded-lg shadow-md p-4 mb-6 ${darkMode ? 'bg-gray-800' : 'bg-white'}`}>
+                            <div className="flex flex-wrap items-center justify-between gap-3">
+                                <button
+                                    onClick={() => {
+                                        setNotes([{id: nextId, title: '', text: '', color: UNCLASSIFIED_COLOR, classified: false}, ...notes]);
+                                        setNextId(nextId + 1);
+                                    }}
+                                    className="flex items-center gap-2 bg-blue-500 hover:bg-blue-600 text-white px-5 py-2.5 rounded-lg shadow-lg font-semibold"
+                                >
+                                    <Plus size={18}/> New Note
+                                </button>
+
+                                <div className="flex items-center gap-3">
+                                    <span className={`text-xs font-semibold uppercase tracking-wider ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>Sort</span>
+                                    <div className={`inline-flex rounded-lg p-1 ${darkMode ? 'bg-gray-700' : 'bg-gray-100'} border ${darkMode ? 'border-gray-600' : 'border-gray-200'}`}>
+                                        <button
+                                            type="button"
+                                            onClick={() => setNotesSortMode('default')}
+                                            className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all ${notesSortMode === 'default' ? (darkMode ? 'bg-gray-900 text-white shadow' : 'bg-white text-gray-900 shadow') : (darkMode ? 'text-gray-300 hover:text-white' : 'text-gray-600 hover:text-gray-900')}`}
+                                        >
+                                            Default
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => finnhubApiKey && setNotesSortMode('positionValue')}
+                                            disabled={!finnhubApiKey}
+                                            className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all ${notesSortMode === 'positionValue' ? (darkMode ? 'bg-gray-900 text-white shadow' : 'bg-white text-gray-900 shadow') : (darkMode ? 'text-gray-300 hover:text-white' : 'text-gray-600 hover:text-gray-900')} ${!finnhubApiKey ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                            title={!finnhubApiKey ? 'Add a Finnhub API key to sort by market value' : 'Sort by largest position (market value)'}
+                                        >
+                                            Largest position
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                            {!finnhubApiKey && (
+                                <div className={`mt-2 text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                                    Add a <span className={darkMode ? 'text-cyan-300 font-semibold' : 'text-blue-600 font-semibold'}>Finnhub API key</span> above to enable market value sorting.
+                                </div>
+                            )}
+                        </div>
+
                         {unclassifiedNotes.length > 0 && (
                             <div className="mb-6">
                                 <div className={`p-4 rounded-lg mb-3 ${darkMode ? 'bg-yellow-900 border-2 border-yellow-600' : 'bg-yellow-50 border-2 border-yellow-400'}`}>
