@@ -345,6 +345,7 @@ const firebaseConfig = {
             const [portfolioLoading, setPortfolioLoading] = useState(false);
             const [mainTab, setMainTab] = useState('notes');
             const [notesSortMode, setNotesSortMode] = useState('default'); // 'default' | 'positionValue'
+            const [notesGroupMode, setNotesGroupMode] = useState('category'); // 'category' | 'size'
             const chartRef = useRef(null);
             const chartInstance = useRef(null);
 
@@ -420,6 +421,7 @@ const firebaseConfig = {
                             setWatchList(data.watchList || []);
                             setNickname(data.nickname || '');
                             setNotesSortMode(data.notesSortMode || 'default');
+                            setNotesGroupMode(data.notesGroupMode || 'category');
 
                             // Reset loading flag after state updates settle
                             setTimeout(() => { isLoadingRef.current = false; }, 200);
@@ -483,6 +485,7 @@ const firebaseConfig = {
                             watchList,
                             nickname,
                             notesSortMode,
+                            notesGroupMode,
                             updatedAt: firebase.firestore.FieldValue.serverTimestamp()
                         };
                         
@@ -527,7 +530,7 @@ const firebaseConfig = {
                         if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
                     };
                 }
-            }, [notes, colorLabels, categories, nextId, collapsedCategories, darkMode, finnhubApiKey, marketauxApiKey, watchList, nickname, notesSortMode]);
+            }, [notes, colorLabels, categories, nextId, collapsedCategories, darkMode, finnhubApiKey, marketauxApiKey, watchList, nickname, notesSortMode, notesGroupMode]);
 
             useEffect(() => {
                 const handleBeforeUnload = async (e) => {
@@ -544,6 +547,7 @@ const firebaseConfig = {
                             watchList,
                             nickname,
                             notesSortMode,
+                            notesGroupMode,
                             updatedAt: firebase.firestore.FieldValue.serverTimestamp()
                         };
                         
@@ -579,7 +583,7 @@ const firebaseConfig = {
 
                 window.addEventListener('beforeunload', handleBeforeUnload);
                 return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-            }, [currentUser, notes, colorLabels, categories, nextId, collapsedCategories, darkMode, finnhubApiKey, marketauxApiKey, watchList, nickname, notesSortMode]);
+            }, [currentUser, notes, colorLabels, categories, nextId, collapsedCategories, darkMode, finnhubApiKey, marketauxApiKey, watchList, nickname, notesSortMode, notesGroupMode]);
 
             const handleLogin = async (e) => {
                 e.preventDefault();
@@ -646,6 +650,7 @@ const firebaseConfig = {
                         watchList,
                         nickname,
                         notesSortMode,
+                        notesGroupMode,
                         updatedAt: firebase.firestore.FieldValue.serverTimestamp()
                     };
 
@@ -1023,6 +1028,41 @@ const firebaseConfig = {
                 });
                 return copy;
             }, [classifiedNotes, notesSortMode, portfolioPrices]);
+
+            // Notes ordering for "Size" view: always sort by position market value (shares * latest price)
+            const sizeSortedClassifiedNotes = useMemo(() => {
+                const getTicker = (n) => (n.title || '').trim().toUpperCase();
+                const getShares = (n) => (typeof n.shares === 'number' ? n.shares : parseFloat(n.shares)) || 0;
+                const getPrice = (ticker) => {
+                    const p = portfolioPrices[ticker];
+                    return typeof p === 'number' ? p : 0;
+                };
+
+                const copy = [...classifiedNotes];
+                copy.sort((a, b) => {
+                    const aShares = getShares(a);
+                    const bShares = getShares(b);
+                    const aIsPos = aShares > 0;
+                    const bIsPos = bShares > 0;
+                    if (aIsPos !== bIsPos) return aIsPos ? -1 : 1;
+
+                    const aTicker = getTicker(a);
+                    const bTicker = getTicker(b);
+                    const aPrice = getPrice(aTicker);
+                    const bPrice = getPrice(bTicker);
+                    const aHasPrice = aPrice > 0;
+                    const bHasPrice = bPrice > 0;
+                    if (aIsPos && bIsPos && aHasPrice !== bHasPrice) return aHasPrice ? -1 : 1;
+
+                    const aValue = aShares * aPrice;
+                    const bValue = bShares * bPrice;
+                    if (bValue !== aValue) return bValue - aValue;
+
+                    if (aTicker !== bTicker) return aTicker.localeCompare(bTicker);
+                    return (a.id || 0) - (b.id || 0);
+                });
+                return copy;
+            }, [classifiedNotes, portfolioPrices]);
 
             // Position ranking info (for badges on notes)
             const { positionRankById, totalPositions, positionDetailsById } = useMemo(() => {
@@ -2979,26 +3019,52 @@ const firebaseConfig = {
                                     <Plus size={18}/> New Note
                                 </button>
 
-                                <div className="flex items-center gap-3">
-                                    <span className={`text-xs font-semibold uppercase tracking-wider ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>Sort</span>
-                                    <div className={`inline-flex rounded-lg p-1 ${darkMode ? 'bg-gray-700' : 'bg-gray-100'} border ${darkMode ? 'border-gray-600' : 'border-gray-200'}`}>
-                                        <button
-                                            type="button"
-                                            onClick={() => setNotesSortMode('default')}
-                                            className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all ${notesSortMode === 'default' ? (darkMode ? 'bg-gray-900 text-white shadow' : 'bg-white text-gray-900 shadow') : (darkMode ? 'text-gray-300 hover:text-white' : 'text-gray-600 hover:text-gray-900')}`}
-                                        >
-                                            Default
-                                        </button>
-                                        <button
-                                            type="button"
-                                            onClick={() => finnhubApiKey && setNotesSortMode('positionValue')}
-                                            disabled={!finnhubApiKey}
-                                            className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all ${notesSortMode === 'positionValue' ? (darkMode ? 'bg-gray-900 text-white shadow' : 'bg-white text-gray-900 shadow') : (darkMode ? 'text-gray-300 hover:text-white' : 'text-gray-600 hover:text-gray-900')} ${!finnhubApiKey ? 'opacity-50 cursor-not-allowed' : ''}`}
-                                            title={!finnhubApiKey ? 'Add a Finnhub API key to sort by market value' : 'Sort by largest position (market value)'}
-                                        >
-                                            Largest position
-                                        </button>
+                                <div className="flex flex-wrap items-center gap-4">
+                                    <div className="flex items-center gap-3">
+                                        <span className={`text-xs font-semibold uppercase tracking-wider ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>Group</span>
+                                        <div className={`inline-flex rounded-lg p-1 ${darkMode ? 'bg-gray-700' : 'bg-gray-100'} border ${darkMode ? 'border-gray-600' : 'border-gray-200'}`}>
+                                            <button
+                                                type="button"
+                                                onClick={() => setNotesGroupMode('category')}
+                                                className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all ${notesGroupMode === 'category' ? (darkMode ? 'bg-gray-900 text-white shadow' : 'bg-white text-gray-900 shadow') : (darkMode ? 'text-gray-300 hover:text-white' : 'text-gray-600 hover:text-gray-900')}`}
+                                            >
+                                                Category
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => finnhubApiKey && setNotesGroupMode('size')}
+                                                disabled={!finnhubApiKey}
+                                                className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all ${notesGroupMode === 'size' ? (darkMode ? 'bg-gray-900 text-white shadow' : 'bg-white text-gray-900 shadow') : (darkMode ? 'text-gray-300 hover:text-white' : 'text-gray-600 hover:text-gray-900')} ${!finnhubApiKey ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                                title={!finnhubApiKey ? 'Add a Finnhub API key to group notes by position size' : 'Show all notes sorted by largest position (market value)'}
+                                            >
+                                                Size
+                                            </button>
+                                        </div>
                                     </div>
+
+                                    {notesGroupMode === 'category' && (
+                                        <div className="flex items-center gap-3">
+                                            <span className={`text-xs font-semibold uppercase tracking-wider ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>Sort</span>
+                                            <div className={`inline-flex rounded-lg p-1 ${darkMode ? 'bg-gray-700' : 'bg-gray-100'} border ${darkMode ? 'border-gray-600' : 'border-gray-200'}`}>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setNotesSortMode('default')}
+                                                    className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all ${notesSortMode === 'default' ? (darkMode ? 'bg-gray-900 text-white shadow' : 'bg-white text-gray-900 shadow') : (darkMode ? 'text-gray-300 hover:text-white' : 'text-gray-600 hover:text-gray-900')}`}
+                                                >
+                                                    Default
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => finnhubApiKey && setNotesSortMode('positionValue')}
+                                                    disabled={!finnhubApiKey}
+                                                    className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all ${notesSortMode === 'positionValue' ? (darkMode ? 'bg-gray-900 text-white shadow' : 'bg-white text-gray-900 shadow') : (darkMode ? 'text-gray-300 hover:text-white' : 'text-gray-600 hover:text-gray-900')} ${!finnhubApiKey ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                                    title={!finnhubApiKey ? 'Add a Finnhub API key to sort by market value' : 'Sort by largest position (market value)'}
+                                                >
+                                                    Largest position
+                                                </button>
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                             {!finnhubApiKey && (
@@ -3042,7 +3108,7 @@ const firebaseConfig = {
                                 </div>
                             </div>
                         )}
-                        {categories.map(color => {
+                        {notesGroupMode === 'category' ? (categories.map(color => {
                             const categoryNotes = groupedNotes[color];
                             if (!categoryNotes.length) return null;
                             return (
@@ -3133,7 +3199,91 @@ const firebaseConfig = {
                                     )}
                                 </div>
                             );
-                        })}
+                        })) : (
+                            <div className="mb-6">
+                                <div className={`flex items-center gap-2 w-full p-3 rounded-lg mb-3 ${darkMode ? 'bg-gray-800 text-white' : 'bg-white text-gray-800'}`}>
+                                    <span className="font-semibold text-lg">All Notes</span>
+                                    <span className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>({sizeSortedClassifiedNotes.length})</span>
+                                    <span className={`text-xs font-semibold uppercase tracking-wider ml-auto ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>Sorted by size</span>
+                                </div>
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                                    {sizeSortedClassifiedNotes.map(note => (
+                                        <div key={note.id} className={`${note.color} p-6 rounded-lg shadow-lg relative hover:scale-105 transition-transform`} style={{minHeight: '200px'}}>
+                                            {positionRankById[note.id] && (
+                                                <div className="absolute top-1 left-1 group">
+                                                    <div className={`bg-white bg-opacity-70 border rounded px-1.5 py-0.5 text-[10px] leading-none font-bold ${darkMode ? 'text-gray-800 border-gray-300' : 'text-gray-700 border-gray-300'}`}>
+                                                        {positionRankById[note.id]} of {totalPositions}
+                                                    </div>
+                                                    <div className={`absolute left-0 top-8 z-40 hidden group-hover:block w-60 rounded-lg border shadow-xl p-3 text-xs ${darkMode ? 'bg-gray-900 text-gray-200 border-gray-700' : 'bg-white text-gray-800 border-gray-200'}`}>
+                                                        <div className="font-bold mb-1">Position ranking</div>
+                                                        <div className={`${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+                                                            <div>
+                                                                <span className="font-semibold">Size:</span>{' '}
+                                                                ${positionDetailsById[note.id].value.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+                                                            </div>
+                                                            <div>
+                                                                <span className="font-semibold">% of total:</span>{' '}
+                                                                {positionDetailsById[note.id].pctOfTotal.toFixed(1)}%
+                                                            </div>
+                                                            <div className="mt-2">
+                                                                This is your <span className="font-semibold">{positionDetailsById[note.id].rank}{(positionDetailsById[note.id].rank % 10 === 1 && positionDetailsById[note.id].rank % 100 !== 11) ? 'st' : (positionDetailsById[note.id].rank % 10 === 2 && positionDetailsById[note.id].rank % 100 !== 12) ? 'nd' : (positionDetailsById[note.id].rank % 10 === 3 && positionDetailsById[note.id].rank % 100 !== 13) ? 'rd' : 'th'}</span>
+                                                                {' '}largest position out of <span className="font-semibold">{positionDetailsById[note.id].totalPositions}</span>.
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            )}
+                                            <div className="absolute top-2 right-2 flex gap-2">
+                                                <select value={note.color} onChange={(e) => setNotes(notes.map(n => n.id === note.id ? {...n, color: e.target.value} : n))} className="bg-white bg-opacity-70 border rounded px-2 py-1 text-xs">
+                                                    {categories.map(c => <option key={c} value={c}>{colorLabels[c]}</option>)}
+                                                </select>
+                                                <button onClick={() => deleteNote(note.id)} className="text-gray-600 hover:text-gray-800"><X size={18}/></button>
+                                            </div>
+                                            <input
+                                                type="text"
+                                                value={note.title || ''}
+                                                onChange={(e) => updateNoteTitle(note.id, e.target.value)}
+                                                placeholder="TICKER"
+                                                className="w-full bg-transparent border-none outline-none text-gray-800 placeholder-gray-500 font-bold text-xl mb-1 uppercase"
+                                                style={{letterSpacing: '0.05em'}}
+                                            />
+                                            <div className="flex items-center gap-2 mb-2">
+                                                <input
+                                                    type="number"
+                                                    value={note.shares || ''}
+                                                    onChange={(e) => updateNoteShares(note.id, e.target.value)}
+                                                    placeholder="# shares"
+                                                    className="w-24 bg-white bg-opacity-50 border border-gray-400 rounded px-2 py-1 text-sm text-gray-700 placeholder-gray-400"
+                                                />
+                                                {note.shares > 0 && <span className="text-xs text-gray-600">shares owned</span>}
+                                            </div>
+                                            <textarea 
+                                                value={note.text} 
+                                                onChange={(e) => {
+                                                    const newText = sanitizeContent(e.target.value);
+                                                    if (!validateContent(newText)) {
+                                                        alert(`Note content cannot exceed ${MAX_CONTENT_LENGTH} characters.`);
+                                                        return;
+                                                    }
+                                                    setNotes(notes.map(n => n.id === note.id ? {...n, text: newText} : n));
+                                                }} 
+                                                placeholder="Notes..." 
+                                                className="w-full h-full bg-transparent border-none outline-none resize-none text-gray-800 placeholder-gray-500" 
+                                                style={{minHeight: '100px'}}
+                                                maxLength={MAX_CONTENT_LENGTH}
+                                            />
+                                            <button
+                                                onClick={() => setExpandedNote(note)}
+                                                className="absolute bottom-2 right-2 bg-white bg-opacity-70 hover:bg-opacity-100 p-2 rounded-lg shadow transition-all"
+                                                title="View with chart"
+                                            >
+                                                <Maximize size={16}/>
+                                            </button>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
                         {!notes.length && <div className="text-center py-20"><p className={`text-xl ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>No notes yet. Click "New Note" to get started!</p></div>}
                         </>
                         ) : (
