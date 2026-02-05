@@ -3096,7 +3096,7 @@ const firebaseConfig = {
 
                                 <div className="flex flex-wrap items-center gap-4">
                                     <div className="flex items-center gap-3">
-                                        <span className={`text-xs font-semibold uppercase tracking-wider ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>Group</span>
+                                        <span className={`text-xs font-semibold uppercase tracking-wider ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>Group By</span>
                                         <div className={`inline-flex rounded-lg p-1 ${darkMode ? 'bg-gray-700' : 'bg-gray-100'} border ${darkMode ? 'border-gray-600' : 'border-gray-200'}`}>
                                             <button
                                                 type="button"
