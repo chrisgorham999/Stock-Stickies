@@ -50,6 +50,8 @@ const firebaseConfig = {
         const ChevronRight = ({ size = 24 }) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="9 18 15 12 9 6"/></svg>;
         const ArrowUp = ({ size = 24 }) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="18 15 12 9 6 15"/></svg>;
         const ArrowDown = ({ size = 24 }) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="6 9 12 15 18 9"/></svg>;
+        const ArrowUpDouble = ({ size = 24 }) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="18 16 12 10 6 16"/><polyline points="18 10 12 4 6 10"/></svg>;
+        const ArrowDownDouble = ({ size = 24 }) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="6 8 12 14 18 8"/><polyline points="6 14 12 20 18 14"/></svg>;
         const Cloud = ({ size = 24 }) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/></svg>;
         const CloudOff = ({ size = 24 }) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22.61 16.95A5 5 0 0 0 18 10h-1.26a8 8 0 0 0-7.05-6M5 5a8 8 0 0 0 4 15h9a5 5 0 0 0 1.7-.3"/><line x1="1" y1="1" x2="23" y2="23"/></svg>;
         const Maximize = ({ size = 24 }) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>;
@@ -981,8 +983,15 @@ const firebaseConfig = {
             const moveCategory = (color, direction) => {
                 const idx = categories.indexOf(color);
                 if (idx === -1) return;
-                const nextIdx = direction === 'up' ? idx - 1 : idx + 1;
+
+                let nextIdx = idx;
+                if (direction === 'up') nextIdx = idx - 1;
+                else if (direction === 'down') nextIdx = idx + 1;
+                else if (direction === 'top') nextIdx = 0;
+                else if (direction === 'bottom') nextIdx = categories.length - 1;
+
                 if (nextIdx < 0 || nextIdx >= categories.length) return;
+                if (nextIdx === idx) return;
 
                 const next = [...categories];
                 const [item] = next.splice(idx, 1);
@@ -3000,9 +3009,18 @@ const firebaseConfig = {
                                                 <button onClick={() => (setColorLabels({...colorLabels, [color]: tempLabel}), setEditingLabel(null))} className="text-green-600"><Check size={12}/></button>
                                                 <button
                                                     type="button"
-                                                    onClick={() => moveCategory(color, 'up')}
+                                                    onClick={() => moveCategory(color, 'top')}
                                                     disabled={idx === 0}
                                                     className={`ml-1 text-gray-400 hover:text-gray-600 ${idx === 0 ? 'opacity-30 cursor-not-allowed' : ''}`}
+                                                    title="Move category to top"
+                                                >
+                                                    <ArrowUpDouble size={12} />
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => moveCategory(color, 'up')}
+                                                    disabled={idx === 0}
+                                                    className={`text-gray-400 hover:text-gray-600 ${idx === 0 ? 'opacity-30 cursor-not-allowed' : ''}`}
                                                     title="Move category up"
                                                 >
                                                     <ArrowUp size={12} />
@@ -3016,11 +3034,29 @@ const firebaseConfig = {
                                                 >
                                                     <ArrowDown size={12} />
                                                 </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => moveCategory(color, 'bottom')}
+                                                    disabled={idx === categories.length - 1}
+                                                    className={`text-gray-400 hover:text-gray-600 ${idx === categories.length - 1 ? 'opacity-30 cursor-not-allowed' : ''}`}
+                                                    title="Move category to bottom"
+                                                >
+                                                    <ArrowDownDouble size={12} />
+                                                </button>
                                             </div>
                                         ) : (
                                             <div className="flex items-center gap-1">
                                                 <span className={`text-xs ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>{colorLabels[color]}</span>
                                                 <button onClick={() => (setEditingLabel(color), setTempLabel(colorLabels[color] || ''))} className="text-gray-400 hover:text-gray-600"><Edit2 size={11}/></button>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => moveCategory(color, 'top')}
+                                                    disabled={idx === 0}
+                                                    className={`text-gray-400 hover:text-gray-600 transition-opacity ${idx === 0 ? 'opacity-30 cursor-not-allowed' : 'opacity-0 group-hover:opacity-100'}`}
+                                                    title="Move category to top"
+                                                >
+                                                    <ArrowUpDouble size={12} />
+                                                </button>
                                                 <button
                                                     type="button"
                                                     onClick={() => moveCategory(color, 'up')}
@@ -3038,6 +3074,15 @@ const firebaseConfig = {
                                                     title="Move category down"
                                                 >
                                                     <ArrowDown size={12} />
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => moveCategory(color, 'bottom')}
+                                                    disabled={idx === categories.length - 1}
+                                                    className={`text-gray-400 hover:text-gray-600 transition-opacity ${idx === categories.length - 1 ? 'opacity-30 cursor-not-allowed' : 'opacity-0 group-hover:opacity-100'}`}
+                                                    title="Move category to bottom"
+                                                >
+                                                    <ArrowDownDouble size={12} />
                                                 </button>
                                             </div>
                                         )}
