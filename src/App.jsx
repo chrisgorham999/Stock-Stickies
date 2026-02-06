@@ -1945,7 +1945,7 @@ const firebaseConfig = {
                     <div className="fixed inset-0 bg-black bg-opacity-60 z-50 flex items-center justify-center p-4">
                         <div className="bg-gray-900 w-full max-w-4xl max-h-[90vh] rounded-2xl shadow-2xl border border-gray-700 overflow-hidden">
                             <div className="flex items-center justify-between px-6 py-4 border-b border-gray-700">
-                                <h2 className="text-xl font-bold text-white">Quick Start Guide</h2>
+                                <h2 className="text-xl font-bold text-white">Stock Stickies Quick Start Guide</h2>
                                 <button onClick={() => setQuickStartOpen(false)} className="text-gray-400 hover:text-white">
                                     <X size={22} />
                                 </button>
