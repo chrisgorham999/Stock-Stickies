@@ -431,8 +431,15 @@ const firebaseConfig = {
             useEffect(() => {
                 if (!auth) return;
                 const unsubscribe = auth.onAuthStateChanged((user) => {
-                    if (user) setCurrentUser(user.email);
-                    else setCurrentUser(null);
+                    if (user) {
+                        setCurrentUser(user.email);
+                        // If this is a Google sign-in (or any provider with an avatar), auto-seed from auth photoURL
+                        setProfilePhoto((prev) => prev || user.photoURL || '');
+                    } else {
+                        setCurrentUser(null);
+                        setProfilePhoto('');
+                        setProfilePhotoMenuOpen(false);
+                    }
                 });
                 return () => unsubscribe();
             }, []);
@@ -1002,6 +1009,9 @@ const firebaseConfig = {
                 if (auth) await auth.signOut();
                 setCurrentUser(null);
                 setNotes([]);
+                setNickname('');
+                setProfilePhoto('');
+                setProfilePhotoMenuOpen(false);
                 // Reset categories to defaults on logout
                 setCategories(DEFAULT_COLORS);
                 setColorLabels(DEFAULT_COLOR_LABELS);
