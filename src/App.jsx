@@ -2974,7 +2974,7 @@ const firebaseConfig = {
                                             </button>
                                         )}
                                     </span>
-                                    <span>Welcome,{' '}</span>
+                                    <span>Welcome,&nbsp;</span>
                                     {editingNickname || !nickname ? (
                                         <input
                                             type="text"
