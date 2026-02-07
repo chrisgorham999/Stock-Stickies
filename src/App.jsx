@@ -168,6 +168,49 @@ const firebaseConfig = {
             return url.toString();
         };
 
+        const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+        const fetchWithRetry = async (url, options = {}, { retries = 3, backoffMs = 700, timeoutMs = 12000 } = {}) => {
+            let lastError = null;
+
+            for (let attempt = 0; attempt <= retries; attempt++) {
+                const controller = new AbortController();
+                const timer = setTimeout(() => controller.abort(), timeoutMs);
+                try {
+                    const response = await fetch(url, {
+                        ...options,
+                        signal: controller.signal
+                    });
+                    clearTimeout(timer);
+
+                    if (response.status === 429 && attempt < retries) {
+                        await sleep(backoffMs * Math.pow(2, attempt));
+                        continue;
+                    }
+
+                    if (!response.ok) {
+                        const retryable = response.status >= 500;
+                        if (retryable && attempt < retries) {
+                            await sleep(backoffMs * Math.pow(2, attempt));
+                            continue;
+                        }
+                        throw new Error(`Request failed (${response.status})`);
+                    }
+
+                    return response;
+                } catch (err) {
+                    clearTimeout(timer);
+                    lastError = err;
+                    if (attempt < retries) {
+                        await sleep(backoffMs * Math.pow(2, attempt));
+                        continue;
+                    }
+                }
+            }
+
+            throw lastError || new Error('Request failed after retries');
+        };
+
         // API Key Encryption/Decryption using Web Crypto API
         // Derives encryption key from user's Firebase UID for security
         const getEncryptionKey = async (userId) => {
@@ -320,6 +363,18 @@ const firebaseConfig = {
             const [showApiKeySuccess, setShowApiKeySuccess] = useState(false);
             const [watchList, setWatchList] = useState([]);
 
+            // IBKR integration placeholders (individual account flow)
+            const [ibkrApiBaseUrl, setIbkrApiBaseUrl] = useState('https://api.ibkr.com/v1/api');
+            const [ibkrUseProxy, setIbkrUseProxy] = useState(true);
+            const [ibkrProxyBaseUrl, setIbkrProxyBaseUrl] = useState('https://YOUR-STOCK-STICKIES-BACKEND.example.com');
+            const [ibkrProxyApiKey, setIbkrProxyApiKey] = useState('');
+            const [ibkrSessionToken, setIbkrSessionToken] = useState(''); // legacy fallback from /tickle flow
+            const [ibkrAccountId, setIbkrAccountId] = useState(''); // e.g., U1234567
+            const [ibkrPositions, setIbkrPositions] = useState([]);
+            const [ibkrLoading, setIbkrLoading] = useState(false);
+            const [ibkrError, setIbkrError] = useState('');
+            const [ibkrLastSync, setIbkrLastSync] = useState(null);
+
             // API key help popovers (click-to-toggle; closes on outside click / Escape)
             const [openHelp, setOpenHelp] = useState(null); // 'finnhub' | 'marketaux' | null
             const finnhubHelpRef = useRef(null);
@@ -467,6 +522,11 @@ const firebaseConfig = {
                             setProfilePhoto(data.profilePhoto || auth.currentUser?.photoURL || '');
                             setNotesSortMode(data.notesSortMode || 'default');
                             setNotesGroupMode(data.notesGroupMode || 'category');
+                            setIbkrUseProxy(data.ibkrUseProxy ?? true);
+                            setIbkrProxyBaseUrl(data.ibkrProxyBaseUrl || 'https://YOUR-STOCK-STICKIES-BACKEND.example.com');
+                            setIbkrProxyApiKey(data.ibkrProxyApiKey || '');
+                            setIbkrApiBaseUrl(data.ibkrApiBaseUrl || 'https://api.ibkr.com/v1/api');
+                            setIbkrAccountId(data.ibkrAccountId || '');
 
                             // Reset loading flag after state updates settle
                             setTimeout(() => { isLoadingRef.current = false; }, 200);
@@ -532,6 +592,11 @@ const firebaseConfig = {
                             profilePhoto,
                             notesSortMode,
                             notesGroupMode,
+                            ibkrUseProxy,
+                            ibkrProxyBaseUrl,
+                            ibkrProxyApiKey,
+                            ibkrApiBaseUrl,
+                            ibkrAccountId,
                             updatedAt: firebase.firestore.FieldValue.serverTimestamp()
                         };
                         
@@ -576,7 +641,7 @@ const firebaseConfig = {
                         if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
                     };
                 }
-            }, [notes, colorLabels, categories, nextId, collapsedCategories, darkMode, finnhubApiKey, marketauxApiKey, watchList, nickname, profilePhoto, notesSortMode, notesGroupMode]);
+            }, [notes, colorLabels, categories, nextId, collapsedCategories, darkMode, finnhubApiKey, marketauxApiKey, watchList, nickname, profilePhoto, notesSortMode, notesGroupMode, ibkrUseProxy, ibkrProxyBaseUrl, ibkrProxyApiKey, ibkrApiBaseUrl, ibkrAccountId]);
 
             useEffect(() => {
                 const handleBeforeUnload = async (e) => {
@@ -595,6 +660,11 @@ const firebaseConfig = {
                             profilePhoto,
                             notesSortMode,
                             notesGroupMode,
+                            ibkrUseProxy,
+                            ibkrProxyBaseUrl,
+                            ibkrProxyApiKey,
+                            ibkrApiBaseUrl,
+                            ibkrAccountId,
                             updatedAt: firebase.firestore.FieldValue.serverTimestamp()
                         };
                         
@@ -630,7 +700,7 @@ const firebaseConfig = {
 
                 window.addEventListener('beforeunload', handleBeforeUnload);
                 return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-            }, [currentUser, notes, colorLabels, categories, nextId, collapsedCategories, darkMode, finnhubApiKey, marketauxApiKey, watchList, nickname, profilePhoto, notesSortMode, notesGroupMode]);
+            }, [currentUser, notes, colorLabels, categories, nextId, collapsedCategories, darkMode, finnhubApiKey, marketauxApiKey, watchList, nickname, profilePhoto, notesSortMode, notesGroupMode, ibkrUseProxy, ibkrProxyBaseUrl, ibkrProxyApiKey, ibkrApiBaseUrl, ibkrAccountId]);
 
             const handleLogin = async (e) => {
                 e.preventDefault();
@@ -773,6 +843,11 @@ const firebaseConfig = {
                         profilePhoto,
                         notesSortMode,
                         notesGroupMode,
+                        ibkrUseProxy,
+                        ibkrProxyBaseUrl,
+                        ibkrProxyApiKey,
+                        ibkrApiBaseUrl,
+                        ibkrAccountId,
                         updatedAt: firebase.firestore.FieldValue.serverTimestamp()
                     };
 
@@ -832,6 +907,94 @@ const firebaseConfig = {
                 isSavingRef.current = true;
                 setWatchList(watchList.filter(t => t !== ticker));
             };
+
+            const fetchIbkrPortfolio = async ({ silent = false } = {}) => {
+                if (!silent) setIbkrError('');
+
+                if (!ibkrAccountId.trim()) {
+                    if (!silent) setIbkrError('Add your IBKR account ID to load positions.');
+                    return;
+                }
+
+                if (!silent) setIbkrLoading(true);
+                try {
+                    let response;
+
+                    if (ibkrUseProxy) {
+                        if (!ibkrProxyBaseUrl.trim()) {
+                            if (!silent) setIbkrError('Add your backend proxy URL to load IBKR positions.');
+                            if (!silent) setIbkrLoading(false);
+                            return;
+                        }
+
+                        const proxyUrl = `${ibkrProxyBaseUrl.replace(/\/$/, '')}/api/ibkr/portfolio/positions`;
+                        response = await fetchWithRetry(proxyUrl, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                ...(ibkrProxyApiKey ? { 'x-api-key': ibkrProxyApiKey.trim() } : {})
+                            },
+                            body: JSON.stringify({
+                                accountId: ibkrAccountId.trim(),
+                                pageId: 0,
+                                ibkrSessionToken: ibkrSessionToken.trim() || undefined
+                            })
+                        }, { retries: 3, backoffMs: 800, timeoutMs: 15000 });
+                    } else {
+                        if (!ibkrSessionToken.trim()) {
+                            if (!silent) setIbkrError('Add your IBKR session token (from /tickle) to load positions.');
+                            if (!silent) setIbkrLoading(false);
+                            return;
+                        }
+
+                        const positionsUrl = `${ibkrApiBaseUrl}/portfolio/${encodeURIComponent(ibkrAccountId.trim())}/positions/0`;
+                        response = await fetchWithRetry(positionsUrl, {
+                            method: 'GET',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Cookie': `api=${ibkrSessionToken.trim()}`
+                            }
+                        }, { retries: 2, backoffMs: 700, timeoutMs: 12000 });
+                    }
+
+                    const data = await response.json();
+                    const normalized = Array.isArray(data)
+                        ? data
+                        : (Array.isArray(data?.positions) ? data.positions : []);
+
+                    setIbkrPositions(normalized.map((p) => ({
+                        symbol: p?.ticker || p?.symbol || p?.contractDesc || 'UNKNOWN',
+                        conid: p?.conid || null,
+                        position: Number(p?.position || p?.qty || 0),
+                        marketPrice: Number(p?.mktPrice || p?.marketPrice || 0),
+                        marketValue: Number(p?.mktValue || p?.marketValue || 0),
+                        unrealizedPnl: Number(p?.unrealizedPnl || p?.unrealizedPNL || 0)
+                    })));
+                    setIbkrLastSync(new Date().toISOString());
+                } catch (err) {
+                    console.error('IBKR portfolio fetch failed:', err);
+                    if (!silent) setIbkrError(err?.message || 'Failed to load IBKR positions.');
+                } finally {
+                    if (!silent) setIbkrLoading(false);
+                }
+            };
+
+            useEffect(() => {
+                const canAutoRefresh = mainTab === 'portfolio'
+                    && !!ibkrAccountId.trim()
+                    && (ibkrUseProxy ? !!ibkrProxyBaseUrl.trim() : !!ibkrSessionToken.trim());
+
+                if (!canAutoRefresh) return;
+
+                // Initial background refresh on entering Portfolio tab
+                fetchIbkrPortfolio({ silent: true });
+
+                const intervalId = setInterval(() => {
+                    fetchIbkrPortfolio({ silent: true });
+                }, 60000);
+
+                return () => clearInterval(intervalId);
+            }, [mainTab, ibkrAccountId, ibkrUseProxy, ibkrProxyBaseUrl, ibkrSessionToken]);
 
             const handleRefreshPortfolioPrices = async () => {
                 if (!finnhubApiKey) {
@@ -1676,6 +1839,10 @@ const firebaseConfig = {
             const totalPortfolioValue = useMemo(() =>
                 portfolioData.reduce((sum, h) => sum + h.value, 0),
             [portfolioData]);
+
+            const totalIbkrMarketValue = useMemo(() =>
+                ibkrPositions.reduce((sum, p) => sum + (Number(p.marketValue) || 0), 0),
+            [ibkrPositions]);
 
             // Update shares for a note
             const updateNoteShares = (noteId, shares) => {
@@ -3569,63 +3736,179 @@ const firebaseConfig = {
                         )}
                         </div>
 
-                        {/* Watch List Panel */}
-                        <div className={`flex-shrink-0 ${darkMode ? 'bg-gray-800' : 'bg-white'} rounded-lg shadow-lg flex flex-col`} style={{width: '30%', maxHeight: 'calc(100vh - 9rem)', marginTop: '96px'}}>
-                            <div className="p-6 pb-4">
-                                <div className="flex items-center justify-between mb-4">
-                                    <h3 className={`text-lg font-semibold ${darkMode ? 'text-white' : 'text-gray-800'}`}>Watch List</h3>
+                        {mainTab === 'notes' ? (
+                            /* Watch List Panel (Notes tab) */
+                            <div className={`flex-shrink-0 ${darkMode ? 'bg-gray-800' : 'bg-white'} rounded-lg shadow-lg flex flex-col`} style={{width: '30%', maxHeight: 'calc(100vh - 9rem)', marginTop: '96px'}}>
+                                <div className="p-6 pb-4">
+                                    <div className="flex items-center justify-between mb-4">
+                                        <h3 className={`text-lg font-semibold ${darkMode ? 'text-white' : 'text-gray-800'}`}>Watch List</h3>
+                                    </div>
+                                    <div className="flex gap-2">
+                                        <input
+                                            type="text"
+                                            value={newWatchTicker}
+                                            onChange={(e) => {
+                                                const sanitized = sanitizeTicker(e.target.value);
+                                                setNewWatchTicker(sanitized);
+                                            }}
+                                            onKeyDown={(e) => e.key === 'Enter' && addToWatchList()}
+                                            placeholder="Add ticker..."
+                                            className={`flex-1 px-3 py-2 rounded border-2 ${darkMode ? 'bg-gray-700 text-white border-gray-600' : 'bg-white text-gray-800 border-gray-300'} focus:ring-2 focus:ring-blue-500 outline-none uppercase`}
+                                            maxLength={MAX_TITLE_LENGTH}
+                                        />
+                                        <button
+                                            onClick={addToWatchList}
+                                            className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded shadow"
+                                        >
+                                            <Plus size={20}/>
+                                        </button>
+                                    </div>
                                 </div>
-                                <div className="flex gap-2">
-                                    <input
-                                        type="text"
-                                        value={newWatchTicker}
-                                        onChange={(e) => {
-                                            const sanitized = sanitizeTicker(e.target.value);
-                                            setNewWatchTicker(sanitized);
-                                        }}
-                                        onKeyDown={(e) => e.key === 'Enter' && addToWatchList()}
-                                        placeholder="Add ticker..."
-                                        className={`flex-1 px-3 py-2 rounded border-2 ${darkMode ? 'bg-gray-700 text-white border-gray-600' : 'bg-white text-gray-800 border-gray-300'} focus:ring-2 focus:ring-blue-500 outline-none uppercase`}
-                                        maxLength={MAX_TITLE_LENGTH}
-                                    />
-                                    <button
-                                        onClick={addToWatchList}
-                                        className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded shadow"
-                                    >
-                                        <Plus size={20}/>
-                                    </button>
+                                <div className="flex-1 overflow-y-auto px-6 pb-6">
+                                    <div className="space-y-2">
+                                        {watchList.length === 0 ? (
+                                            <p className={`text-sm text-center py-4 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                                                No tickers in watch list
+                                            </p>
+                                        ) : (
+                                            watchList.map((ticker) => (
+                                                <div
+                                                    key={ticker}
+                                                    className={`flex items-center justify-between p-3 rounded cursor-pointer ${darkMode ? 'bg-gray-700 hover:bg-gray-600' : 'bg-gray-100 hover:bg-gray-200'} hover:shadow-md transition-all`}
+                                                    onClick={() => setWatchListModalTicker(ticker)}
+                                                >
+                                                    <span className={`font-bold text-lg ${darkMode ? 'text-white' : 'text-gray-800'}`}>
+                                                        {ticker}
+                                                    </span>
+                                                    <button
+                                                        onClick={(e) => { e.stopPropagation(); removeFromWatchList(ticker); }}
+                                                        className={`flex items-center justify-center w-8 h-8 rounded-full border ${darkMode ? 'border-red-400 text-red-300 hover:text-red-200 hover:border-red-300 hover:bg-red-900/20' : 'border-red-400 text-red-600 hover:text-red-700 hover:border-red-500 hover:bg-red-50'}`}
+                                                        aria-label={`Remove ${ticker} from watch list`}
+                                                        title="Remove from watch list"
+                                                    >
+                                                        <X size={18}/>
+                                                    </button>
+                                                </div>
+                                            ))
+                                        )}
+                                    </div>
                                 </div>
                             </div>
-                            <div className="flex-1 overflow-y-auto px-6 pb-6">
-                                <div className="space-y-2">
-                                    {watchList.length === 0 ? (
-                                        <p className={`text-sm text-center py-4 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                                            No tickers in watch list
-                                        </p>
-                                    ) : (
-                                        watchList.map((ticker) => (
-                                            <div
-                                                key={ticker}
-                                                className={`flex items-center justify-between p-3 rounded cursor-pointer ${darkMode ? 'bg-gray-700 hover:bg-gray-600' : 'bg-gray-100 hover:bg-gray-200'} hover:shadow-md transition-all`}
-                                                onClick={() => setWatchListModalTicker(ticker)}
-                                            >
-                                                <span className={`font-bold text-lg ${darkMode ? 'text-white' : 'text-gray-800'}`}>
-                                                    {ticker}
-                                                </span>
-                                                <button
-                                                    onClick={(e) => { e.stopPropagation(); removeFromWatchList(ticker); }}
-                                                    className={`flex items-center justify-center w-8 h-8 rounded-full border ${darkMode ? 'border-red-400 text-red-300 hover:text-red-200 hover:border-red-300 hover:bg-red-900/20' : 'border-red-400 text-red-600 hover:text-red-700 hover:border-red-500 hover:bg-red-50'}`}
-                                                    aria-label={`Remove ${ticker} from watch list`}
-                                                    title="Remove from watch list"
-                                                >
-                                                    <X size={18}/>
-                                                </button>
-                                            </div>
-                                        ))
+                        ) : (
+                            /* IBKR Portfolio Panel (Portfolio tab) */
+                            <div className={`flex-shrink-0 ${darkMode ? 'bg-gray-800' : 'bg-white'} rounded-lg shadow-lg flex flex-col`} style={{width: '30%', maxHeight: 'calc(100vh - 9rem)', marginTop: '96px'}}>
+                                <div className="p-6 pb-4 border-b border-gray-200 dark:border-gray-700">
+                                    <h3 className={`text-lg font-semibold mb-3 ${darkMode ? 'text-white' : 'text-gray-800'}`}>IBKR Portfolio</h3>
+                                    <div className="flex items-center justify-between mb-2">
+                                        <span className={`text-xs font-semibold uppercase tracking-wider ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Connection Mode</span>
+                                        <button
+                                            onClick={() => setIbkrUseProxy(!ibkrUseProxy)}
+                                            className={`px-2 py-1 text-xs rounded border ${darkMode ? 'border-gray-600 text-gray-200 hover:bg-gray-700' : 'border-gray-300 text-gray-700 hover:bg-gray-100'}`}
+                                            title="Toggle between backend proxy and direct session-token mode"
+                                        >
+                                            {ibkrUseProxy ? 'Proxy (recommended)' : 'Direct (legacy)'}
+                                        </button>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <input
+                                            type="text"
+                                            value={ibkrAccountId}
+                                            onChange={(e) => setIbkrAccountId(e.target.value)}
+                                            placeholder="Account ID (e.g., U1234567)"
+                                            className={`w-full px-3 py-2 rounded border-2 text-sm ${darkMode ? 'bg-gray-700 text-white border-gray-600' : 'bg-white text-gray-800 border-gray-300'} focus:ring-2 focus:ring-blue-500 outline-none`}
+                                        />
+
+                                        {ibkrUseProxy ? (
+                                            <>
+                                                <input
+                                                    type="text"
+                                                    value={ibkrProxyBaseUrl}
+                                                    onChange={(e) => setIbkrProxyBaseUrl(e.target.value)}
+                                                    placeholder="Proxy URL (https://your-backend...)"
+                                                    className={`w-full px-3 py-2 rounded border-2 text-sm ${darkMode ? 'bg-gray-700 text-white border-gray-600' : 'bg-white text-gray-800 border-gray-300'} focus:ring-2 focus:ring-blue-500 outline-none`}
+                                                />
+                                                <input
+                                                    type="password"
+                                                    value={ibkrProxyApiKey}
+                                                    onChange={(e) => setIbkrProxyApiKey(e.target.value)}
+                                                    placeholder="Proxy API key (optional)"
+                                                    className={`w-full px-3 py-2 rounded border-2 text-sm ${darkMode ? 'bg-gray-700 text-white border-gray-600' : 'bg-white text-gray-800 border-gray-300'} focus:ring-2 focus:ring-blue-500 outline-none`}
+                                                />
+                                                <input
+                                                    type="password"
+                                                    value={ibkrSessionToken}
+                                                    onChange={(e) => setIbkrSessionToken(e.target.value)}
+                                                    placeholder="IBKR session token (temporary placeholder)"
+                                                    className={`w-full px-3 py-2 rounded border-2 text-sm ${darkMode ? 'bg-gray-700 text-white border-gray-600' : 'bg-white text-gray-800 border-gray-300'} focus:ring-2 focus:ring-blue-500 outline-none`}
+                                                />
+                                            </>
+                                        ) : (
+                                            <>
+                                                <input
+                                                    type="text"
+                                                    value={ibkrApiBaseUrl}
+                                                    onChange={(e) => setIbkrApiBaseUrl(e.target.value)}
+                                                    placeholder="IBKR API base URL"
+                                                    className={`w-full px-3 py-2 rounded border-2 text-sm ${darkMode ? 'bg-gray-700 text-white border-gray-600' : 'bg-white text-gray-800 border-gray-300'} focus:ring-2 focus:ring-blue-500 outline-none`}
+                                                />
+                                                <input
+                                                    type="password"
+                                                    value={ibkrSessionToken}
+                                                    onChange={(e) => setIbkrSessionToken(e.target.value)}
+                                                    placeholder="Session token from /tickle"
+                                                    className={`w-full px-3 py-2 rounded border-2 text-sm ${darkMode ? 'bg-gray-700 text-white border-gray-600' : 'bg-white text-gray-800 border-gray-300'} focus:ring-2 focus:ring-blue-500 outline-none`}
+                                                />
+                                            </>
+                                        )}
+
+                                        <button
+                                            onClick={fetchIbkrPortfolio}
+                                            disabled={ibkrLoading}
+                                            className={`w-full px-3 py-2 rounded text-sm font-semibold ${ibkrLoading ? 'bg-blue-400 cursor-not-allowed text-white' : 'bg-blue-500 hover:bg-blue-600 text-white'}`}
+                                        >
+                                            {ibkrLoading ? 'Loading IBKR...' : 'Load IBKR Positions'}
+                                        </button>
+                                    </div>
+                                    <p className={`mt-2 text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                                        {ibkrUseProxy
+                                            ? 'Proxy mode keeps IBKR session/cookies server-side (recommended).'
+                                            : 'Direct mode is placeholder-only and should be replaced by proxy mode for production.'}
+                                    </p>
+                                    {ibkrError && <p className="mt-2 text-xs text-red-400">{ibkrError}</p>}
+                                    <div className={`mt-3 text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                                        Total IBKR Market Value: <span className="font-semibold">${totalIbkrMarketValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                    </div>
+                                    {ibkrLastSync && (
+                                        <div className={`text-xs ${darkMode ? 'text-gray-500' : 'text-gray-500'}`}>
+                                            Last sync: {new Date(ibkrLastSync).toLocaleString()}
+                                        </div>
                                     )}
                                 </div>
+                                <div className="flex-1 overflow-y-auto px-6 py-4">
+                                    <div className="space-y-2">
+                                        {ibkrPositions.length === 0 ? (
+                                            <p className={`text-sm text-center py-4 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                                                No IBKR positions loaded yet
+                                            </p>
+                                        ) : (
+                                            ibkrPositions.map((position, idx) => (
+                                                <div key={`${position.conid || position.symbol}-${idx}`} className={`p-3 rounded ${darkMode ? 'bg-gray-700' : 'bg-gray-100'}`}>
+                                                    <div className="flex items-center justify-between">
+                                                        <span className={`font-bold ${darkMode ? 'text-white' : 'text-gray-800'}`}>{position.symbol}</span>
+                                                        <span className={`text-sm ${darkMode ? 'text-gray-200' : 'text-gray-700'}`}>{position.position} sh</span>
+                                                    </div>
+                                                    <div className={`text-xs mt-1 ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+                                                        MV: ${Number(position.marketValue || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                                        {' · '}
+                                                        PnL: {Number(position.unrealizedPnl || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                                    </div>
+                                                </div>
+                                            ))
+                                        )}
+                                    </div>
+                                </div>
                             </div>
-                        </div>
+                        )}
                     </div>
                 </div>
 
