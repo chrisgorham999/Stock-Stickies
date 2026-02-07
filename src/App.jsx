@@ -3961,8 +3961,8 @@ const firebaseConfig = {
                                         </div>
                                     )}
                                 </div>
-                                <div className="flex-1 overflow-y-auto px-6 py-4">
-                                    <div className="flex gap-2 mb-3">
+                                <div className="px-6 py-4">
+                                    <div className="flex gap-2 mb-4">
                                         <input
                                             type="text"
                                             value={ibkrFilter}
@@ -3980,7 +3980,7 @@ const firebaseConfig = {
                                             <option value="symbol">Sort: Symbol</option>
                                         </select>
                                     </div>
-                                    <div className="space-y-2">
+                                    <div className="space-y-2 max-h-64 overflow-y-auto pb-2">
                                         {ibkrVisiblePositions.length === 0 ? (
                                             <p className={`text-sm text-center py-4 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
                                                 No IBKR positions loaded yet
