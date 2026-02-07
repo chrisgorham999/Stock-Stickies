@@ -3913,44 +3913,11 @@ const firebaseConfig = {
                                 <div className="p-6 pb-4 border-b border-gray-200 dark:border-gray-700">
                                     <h3 className={`text-lg font-semibold mb-3 ${darkMode ? 'text-white' : 'text-gray-800'}`}>IBKR Portfolio</h3>
                                     <div className="flex items-center justify-between mb-2">
-                                        <span className={`text-xs font-semibold uppercase tracking-wider ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Connection</span>
+                                        <span className={`text-xs font-semibold uppercase tracking-wider ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Positions</span>
                                         <span className={`px-2 py-1 rounded text-[10px] font-semibold uppercase ${ibkrConnectionStatus === 'connected' ? 'bg-green-600/20 text-green-400' : ibkrConnectionStatus === 'syncing' ? 'bg-blue-600/20 text-blue-400' : ibkrConnectionStatus === 'stale' ? 'bg-yellow-600/20 text-yellow-400' : ibkrConnectionStatus === 'error' ? 'bg-red-600/20 text-red-400' : 'bg-gray-600/20 text-gray-400'}`}>
                                             {ibkrConnectionStatus}
                                         </span>
                                     </div>
-                                    <div className="space-y-2">
-                                        <input
-                                            type="text"
-                                            value={ibkrAccountId}
-                                            onChange={(e) => setIbkrAccountId(e.target.value)}
-                                            placeholder="Account ID (e.g., U1234567)"
-                                            className={`w-full px-3 py-2 rounded border-2 text-sm ${darkMode ? 'bg-gray-700 text-white border-gray-600' : 'bg-white text-gray-800 border-gray-300'} focus:ring-2 focus:ring-blue-500 outline-none`}
-                                        />
-                                        <input
-                                            type="text"
-                                            value={ibkrProxyBaseUrl}
-                                            onChange={(e) => setIbkrProxyBaseUrl(e.target.value)}
-                                            placeholder="Proxy URL (https://your-backend...)"
-                                            className={`w-full px-3 py-2 rounded border-2 text-sm ${darkMode ? 'bg-gray-700 text-white border-gray-600' : 'bg-white text-gray-800 border-gray-300'} focus:ring-2 focus:ring-blue-500 outline-none`}
-                                        />
-                                        <input
-                                            type="password"
-                                            value={ibkrProxyApiKey}
-                                            onChange={(e) => setIbkrProxyApiKey(e.target.value)}
-                                            placeholder="Proxy API key (optional)"
-                                            className={`w-full px-3 py-2 rounded border-2 text-sm ${darkMode ? 'bg-gray-700 text-white border-gray-600' : 'bg-white text-gray-800 border-gray-300'} focus:ring-2 focus:ring-blue-500 outline-none`}
-                                        />
-                                        <button
-                                            onClick={fetchIbkrPortfolio}
-                                            disabled={ibkrLoading}
-                                            className={`w-full px-3 py-2 rounded text-sm font-semibold ${ibkrLoading ? 'bg-blue-400 cursor-not-allowed text-white' : 'bg-blue-500 hover:bg-blue-600 text-white'}`}
-                                        >
-                                            {ibkrLoading ? 'Loading IBKR...' : 'Load IBKR Positions'}
-                                        </button>
-                                    </div>
-                                    <p className={`mt-2 text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                                        Proxy mode keeps IBKR session/cookies server-side (recommended).
-                                    </p>
                                     {ibkrError && <p className="mt-2 text-xs text-red-400">{ibkrError}</p>}
                                     <div className={`mt-3 text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
                                         Total IBKR Market Value: <span className="font-semibold">${totalIbkrMarketValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
@@ -3962,24 +3929,6 @@ const firebaseConfig = {
                                     )}
                                 </div>
                                 <div className="px-6 py-4">
-                                    <div className="flex gap-2 mb-4">
-                                        <input
-                                            type="text"
-                                            value={ibkrFilter}
-                                            onChange={(e) => setIbkrFilter(e.target.value)}
-                                            placeholder="Filter symbol..."
-                                            className={`flex-1 px-2 py-1.5 rounded border text-xs ${darkMode ? 'bg-gray-700 text-white border-gray-600' : 'bg-white text-gray-800 border-gray-300'}`}
-                                        />
-                                        <select
-                                            value={ibkrSortBy}
-                                            onChange={(e) => setIbkrSortBy(e.target.value)}
-                                            className={`px-2 py-1.5 rounded border text-xs ${darkMode ? 'bg-gray-700 text-white border-gray-600' : 'bg-white text-gray-800 border-gray-300'}`}
-                                        >
-                                            <option value="marketValue">Sort: MV</option>
-                                            <option value="pnl">Sort: PnL</option>
-                                            <option value="symbol">Sort: Symbol</option>
-                                        </select>
-                                    </div>
                                     <div className="space-y-2 pb-2">
                                         {ibkrVisiblePositions.length === 0 ? (
                                             <p className={`text-sm text-center py-4 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
@@ -4005,44 +3954,11 @@ const firebaseConfig = {
                                 <div className="mt-8 pt-6 px-6 pb-6 border-t border-gray-300 dark:border-gray-600">
                                     <h3 className={`text-lg font-semibold mb-3 ${darkMode ? 'text-white' : 'text-gray-800'}`}>Robinhood Crypto API</h3>
                                     <div className="flex items-center justify-between mb-2">
-                                        <span className={`text-xs font-semibold uppercase tracking-wider ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Connection</span>
+                                        <span className={`text-xs font-semibold uppercase tracking-wider ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Positions</span>
                                         <span className={`px-2 py-1 rounded text-[10px] font-semibold uppercase ${rhConnectionStatus === 'connected' ? 'bg-green-600/20 text-green-400' : rhConnectionStatus === 'syncing' ? 'bg-blue-600/20 text-blue-400' : rhConnectionStatus === 'stale' ? 'bg-yellow-600/20 text-yellow-400' : rhConnectionStatus === 'error' ? 'bg-red-600/20 text-red-400' : 'bg-gray-600/20 text-gray-400'}`}>
                                             {rhConnectionStatus}
                                         </span>
                                     </div>
-                                    <div className="space-y-2">
-                                        <input
-                                            type="text"
-                                            value={rhProxyBaseUrl}
-                                            onChange={(e) => setRhProxyBaseUrl(e.target.value)}
-                                            placeholder="Proxy URL (https://your-backend...)"
-                                            className={`w-full px-3 py-2 rounded border-2 text-sm ${darkMode ? 'bg-gray-700 text-white border-gray-600' : 'bg-white text-gray-800 border-gray-300'} focus:ring-2 focus:ring-blue-500 outline-none`}
-                                        />
-                                        <input
-                                            type="password"
-                                            value={rhProxyApiKey}
-                                            onChange={(e) => setRhProxyApiKey(e.target.value)}
-                                            placeholder="Proxy API key (optional)"
-                                            className={`w-full px-3 py-2 rounded border-2 text-sm ${darkMode ? 'bg-gray-700 text-white border-gray-600' : 'bg-white text-gray-800 border-gray-300'} focus:ring-2 focus:ring-blue-500 outline-none`}
-                                        />
-                                        <input
-                                            type="text"
-                                            value={rhApiKeyId}
-                                            onChange={(e) => setRhApiKeyId(e.target.value)}
-                                            placeholder="Robinhood API key ID (placeholder)"
-                                            className={`w-full px-3 py-2 rounded border-2 text-sm ${darkMode ? 'bg-gray-700 text-white border-gray-600' : 'bg-white text-gray-800 border-gray-300'} focus:ring-2 focus:ring-blue-500 outline-none`}
-                                        />
-                                        <button
-                                            onClick={fetchRobinhoodCryptoPortfolio}
-                                            disabled={rhLoading}
-                                            className={`w-full px-3 py-2 rounded text-sm font-semibold ${rhLoading ? 'bg-blue-400 cursor-not-allowed text-white' : 'bg-blue-500 hover:bg-blue-600 text-white'}`}
-                                        >
-                                            {rhLoading ? 'Loading Robinhood...' : 'Load Robinhood Crypto Positions'}
-                                        </button>
-                                    </div>
-                                    <p className={`mt-2 text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                                        Placeholder plan: backend signs Robinhood crypto requests (Ed25519) and returns holdings only.
-                                    </p>
                                     {rhError && <p className="mt-2 text-xs text-red-400">{rhError}</p>}
                                     <div className={`mt-3 text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
                                         Total Robinhood Crypto Value: <span className="font-semibold">${totalRhMarketValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
