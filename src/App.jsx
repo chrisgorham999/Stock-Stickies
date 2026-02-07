@@ -3152,7 +3152,7 @@ const firebaseConfig = {
 
                 <div className={`min-h-screen p-8 ${darkMode ? 'bg-gradient-to-br from-gray-900 to-gray-800' : 'bg-gradient-to-br from-gray-100 to-gray-200'}`}>
                     <div className="flex gap-6 max-w-full mx-auto items-start">
-                        <div className="flex-grow" style={{width: '70%'}}>
+                        <div className="flex-grow" style={{width: '65%'}}>
                         <div className="flex items-center justify-between mb-4">
                             <div>
                                 <div className="flex items-center gap-3">
@@ -3847,7 +3847,7 @@ const firebaseConfig = {
 
                         {(mainTab === 'notes' || !isOwnerPortfolioUser) ? (
                             /* Watch List Panel */
-                            <div className={`flex-shrink-0 ${darkMode ? 'bg-gray-800' : 'bg-white'} rounded-lg shadow-lg flex flex-col`} style={{width: '30%', maxHeight: 'calc(100vh - 9rem)', marginTop: '96px'}}>
+                            <div className={`flex-shrink-0 ${darkMode ? 'bg-gray-800' : 'bg-white'} rounded-lg shadow-lg flex flex-col`} style={{width: '35%', maxHeight: 'calc(100vh - 9rem)', marginTop: '96px'}}>
                                 <div className="p-6 pb-4">
                                     <div className="flex items-center justify-between mb-4">
                                         <h3 className={`text-lg font-semibold ${darkMode ? 'text-white' : 'text-gray-800'}`}>Watch List</h3>
@@ -3910,7 +3910,7 @@ const firebaseConfig = {
                             </div>
                         ) : (
                             /* IBKR Portfolio Panel (Portfolio tab) */
-                            <div className={`flex-shrink-0 ${darkMode ? 'bg-gray-800' : 'bg-white'} rounded-lg shadow-lg flex flex-col`} style={{width: '30%', maxHeight: 'calc(100vh - 9rem)', marginTop: '96px'}}>
+                            <div className={`flex-shrink-0 ${darkMode ? 'bg-gray-800' : 'bg-white'} rounded-lg shadow-lg flex flex-col`} style={{width: '35%', maxHeight: 'calc(100vh - 9rem)', marginTop: '96px'}}>
                                 <div className="p-6 pb-4 border-b border-gray-200 dark:border-gray-700">
                                     <h3 className={`text-lg font-semibold mb-3 ${darkMode ? 'text-white' : 'text-gray-800'}`}>IBKR Portfolio</h3>
                                     <div className="flex items-center justify-between mb-2">
@@ -4003,7 +4003,7 @@ const firebaseConfig = {
                                         )}
                                     </div>
                                 </div>
-                                <div className="border-t border-gray-200 dark:border-gray-700 p-6">
+                                <div className="mt-4 border-t border-gray-200 dark:border-gray-700 pt-6 px-6 pb-6">
                                     <h3 className={`text-lg font-semibold mb-3 ${darkMode ? 'text-white' : 'text-gray-800'}`}>Robinhood Crypto API</h3>
                                     <div className="flex items-center justify-between mb-2">
                                         <span className={`text-xs font-semibold uppercase tracking-wider ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Connection</span>
