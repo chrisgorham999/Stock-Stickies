@@ -17,6 +17,7 @@ export default function NoteCard({
     deleteNote,
     updateNoteTitle,
     updateNoteShares,
+    sharesPrivacyMode,
     setExpandedNote,
 
     // validation
@@ -90,13 +91,19 @@ export default function NoteCard({
 
             <div className="flex items-center gap-2 mb-2">
                 <input
-                    type="number"
-                    value={note.shares || ''}
-                    onChange={(e) => updateNoteShares(note.id, e.target.value)}
+                    type={sharesPrivacyMode === 'hide' ? 'text' : 'number'}
+                    value={sharesPrivacyMode === 'hide' ? '••••' : (note.shares || '')}
+                    onChange={(e) => {
+                        if (sharesPrivacyMode === 'hide') return;
+                        updateNoteShares(note.id, e.target.value);
+                    }}
+                    readOnly={sharesPrivacyMode === 'hide'}
                     placeholder="# shares"
-                    className="w-24 bg-white bg-opacity-50 border border-gray-400 rounded px-2 py-1 text-sm text-gray-700 placeholder-gray-400"
+                    className={`w-24 bg-white bg-opacity-50 border border-gray-400 rounded px-2 py-1 text-sm text-gray-700 placeholder-gray-400 ${sharesPrivacyMode === 'blur' ? 'blur-sm select-none' : ''} ${sharesPrivacyMode === 'hide' ? 'tracking-[0.2em] text-center cursor-not-allowed' : ''}`}
                 />
-                {note.shares > 0 && <span className="text-xs text-gray-600">shares owned</span>}
+                {sharesPrivacyMode === 'hide'
+                    ? <span className="text-xs text-gray-600">shares hidden</span>
+                    : (note.shares > 0 && <span className={`text-xs text-gray-600 ${sharesPrivacyMode === 'blur' ? 'blur-sm select-none' : ''}`}>shares owned</span>)}
             </div>
 
             <textarea
