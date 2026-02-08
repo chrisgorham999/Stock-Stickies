@@ -426,7 +426,7 @@ const firebaseConfig = {
             const [notesGroupMode, setNotesGroupMode] = useState('category'); // 'category' | 'size'
             const [hideLegendPanel, setHideLegendPanel] = useState(false);
             const [hideToolbarPanel, setHideToolbarPanel] = useState(false);
-            const [sharesPrivacyMode, setSharesPrivacyMode] = useState('show'); // 'show' | 'blur' | 'hide'
+            const [sharesPrivacyMode, setSharesPrivacyMode] = useState('show'); // 'show' | 'hide'
             const [draggingCategory, setDraggingCategory] = useState(null);
             const [dragOverCategory, setDragOverCategory] = useState(null);
             const chartRef = useRef(null);
@@ -2438,6 +2438,7 @@ const firebaseConfig = {
                                             <ol className="list-decimal list-inside space-y-1 text-gray-300">
                                                 <li>In the Notes tab header, use <span className="text-white font-semibold">Show Legend</span>/<span className="text-white font-semibold">Hide Legend</span>.</li>
                                                 <li>Use <span className="text-white font-semibold">Show Toolbar</span>/<span className="text-white font-semibold">Hide Toolbar</span> to collapse the Functionality panel.</li>
+                                                <li>Use <span className="text-white font-semibold">Hide Shares</span> in the Notes header to mask share counts on note cards.</li>
                                                 <li>Your visibility choices are saved and will persist the next time you open the app.</li>
                                             </ol>
                                         </div>
@@ -2697,9 +2698,9 @@ const firebaseConfig = {
                                             }}
                                             readOnly={sharesPrivacyMode === 'hide'}
                                             placeholder="# shares"
-                                            className={`w-32 bg-white bg-opacity-50 border border-gray-400 rounded px-3 py-2 text-lg text-gray-700 placeholder-gray-400 ${sharesPrivacyMode === 'blur' ? 'blur-sm select-none' : ''} ${sharesPrivacyMode === 'hide' ? 'tracking-[0.25em] text-center cursor-not-allowed' : ''}`}
+                                            className={`w-32 bg-white bg-opacity-50 border border-gray-400 rounded px-3 py-2 text-lg text-gray-700 placeholder-gray-400 ${sharesPrivacyMode === 'hide' ? 'tracking-[0.25em] text-center cursor-not-allowed' : ''}`}
                                         />
-                                        <span className={`text-gray-600 ${sharesPrivacyMode === 'blur' ? 'blur-sm select-none' : ''}`}>
+                                        <span className="text-gray-600">
                                             {sharesPrivacyMode === 'hide' ? 'shares hidden' : 'shares owned (for portfolio)'}
                                         </span>
                                     </div>
@@ -3337,19 +3338,11 @@ const firebaseConfig = {
                                             </button>
                                             <button
                                                 type="button"
-                                                onClick={() => setSharesPrivacyMode(sharesPrivacyMode === 'blur' ? 'show' : 'blur')}
-                                                className={`ml-2 px-2.5 py-1 rounded text-xs font-semibold border ${sharesPrivacyMode === 'blur' ? (darkMode ? 'bg-blue-700 text-white border-blue-500' : 'bg-blue-600 text-white border-blue-600') : (darkMode ? 'bg-gray-800 text-gray-200 hover:bg-gray-700 border-gray-700' : 'bg-white text-gray-700 hover:bg-gray-100 border-gray-300')}`}
-                                                title="Blur share values on notes"
-                                            >
-                                                Blur Shares
-                                            </button>
-                                            <button
-                                                type="button"
                                                 onClick={() => setSharesPrivacyMode(sharesPrivacyMode === 'hide' ? 'show' : 'hide')}
                                                 className={`ml-2 px-2.5 py-1 rounded text-xs font-semibold border ${sharesPrivacyMode === 'hide' ? (darkMode ? 'bg-red-700 text-white border-red-500' : 'bg-red-600 text-white border-red-600') : (darkMode ? 'bg-gray-800 text-gray-200 hover:bg-gray-700 border-gray-700' : 'bg-white text-gray-700 hover:bg-gray-100 border-gray-300')}`}
                                                 title="Hide share values on notes"
                                             >
-                                                Hide Shares
+                                                {sharesPrivacyMode === 'hide' ? 'Show Shares' : 'Hide Shares'}
                                             </button>
                                         </>
                                     )}

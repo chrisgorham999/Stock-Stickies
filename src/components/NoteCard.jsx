@@ -99,11 +99,11 @@ export default function NoteCard({
                     }}
                     readOnly={sharesPrivacyMode === 'hide'}
                     placeholder="# shares"
-                    className={`w-24 bg-white bg-opacity-50 border border-gray-400 rounded px-2 py-1 text-sm text-gray-700 placeholder-gray-400 ${sharesPrivacyMode === 'blur' ? 'blur-sm select-none' : ''} ${sharesPrivacyMode === 'hide' ? 'tracking-[0.2em] text-center cursor-not-allowed' : ''}`}
+                    className={`w-24 bg-white bg-opacity-50 border border-gray-400 rounded px-2 py-1 text-sm text-gray-700 placeholder-gray-400 ${sharesPrivacyMode === 'hide' ? 'tracking-[0.2em] text-center cursor-not-allowed' : ''}`}
                 />
                 {sharesPrivacyMode === 'hide'
                     ? <span className="text-xs text-gray-600">shares hidden</span>
-                    : (note.shares > 0 && <span className={`text-xs text-gray-600 ${sharesPrivacyMode === 'blur' ? 'blur-sm select-none' : ''}`}>shares owned</span>)}
+                    : (note.shares > 0 && <span className="text-xs text-gray-600">shares owned</span>)}
             </div>
 
             <textarea
