@@ -426,6 +426,7 @@ const firebaseConfig = {
             const [notesGroupMode, setNotesGroupMode] = useState('category'); // 'category' | 'size'
             const [hideLegendPanel, setHideLegendPanel] = useState(false);
             const [hideToolbarPanel, setHideToolbarPanel] = useState(false);
+            const [sharesPrivacyMode, setSharesPrivacyMode] = useState('show'); // 'show' | 'blur' | 'hide'
             const [draggingCategory, setDraggingCategory] = useState(null);
             const [dragOverCategory, setDragOverCategory] = useState(null);
             const chartRef = useRef(null);
@@ -537,6 +538,7 @@ const firebaseConfig = {
                             setNotesGroupMode(data.notesGroupMode || 'category');
                             setHideLegendPanel(data.hideLegendPanel || false);
                             setHideToolbarPanel(data.hideToolbarPanel || false);
+                            setSharesPrivacyMode(data.sharesPrivacyMode || 'show');
                             setIbkrProxyBaseUrl(data.ibkrProxyBaseUrl || 'https://YOUR-STOCK-STICKIES-BACKEND.example.com');
                             setIbkrProxyApiKey(data.ibkrProxyApiKey || '');
                             setIbkrAccountId(data.ibkrAccountId || '');
@@ -610,6 +612,7 @@ const firebaseConfig = {
                             notesGroupMode,
                             hideLegendPanel,
                             hideToolbarPanel,
+                            sharesPrivacyMode,
                             ibkrProxyBaseUrl,
                             ibkrProxyApiKey,
                             ibkrAccountId,
@@ -660,7 +663,7 @@ const firebaseConfig = {
                         if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
                     };
                 }
-            }, [notes, colorLabels, categories, nextId, collapsedCategories, darkMode, finnhubApiKey, marketauxApiKey, watchList, nickname, profilePhoto, notesSortMode, notesGroupMode, hideLegendPanel, hideToolbarPanel, ibkrProxyBaseUrl, ibkrProxyApiKey, ibkrAccountId, rhProxyBaseUrl, rhProxyApiKey, rhApiKeyId]);
+            }, [notes, colorLabels, categories, nextId, collapsedCategories, darkMode, finnhubApiKey, marketauxApiKey, watchList, nickname, profilePhoto, notesSortMode, notesGroupMode, hideLegendPanel, hideToolbarPanel, sharesPrivacyMode, ibkrProxyBaseUrl, ibkrProxyApiKey, ibkrAccountId, rhProxyBaseUrl, rhProxyApiKey, rhApiKeyId]);
 
             useEffect(() => {
                 const handleBeforeUnload = async (e) => {
@@ -681,6 +684,7 @@ const firebaseConfig = {
                             notesGroupMode,
                             hideLegendPanel,
                             hideToolbarPanel,
+                            sharesPrivacyMode,
                             ibkrProxyBaseUrl,
                             ibkrProxyApiKey,
                             ibkrAccountId,
@@ -722,7 +726,7 @@ const firebaseConfig = {
 
                 window.addEventListener('beforeunload', handleBeforeUnload);
                 return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-            }, [currentUser, notes, colorLabels, categories, nextId, collapsedCategories, darkMode, finnhubApiKey, marketauxApiKey, watchList, nickname, profilePhoto, notesSortMode, notesGroupMode, hideLegendPanel, hideToolbarPanel, ibkrProxyBaseUrl, ibkrProxyApiKey, ibkrAccountId, rhProxyBaseUrl, rhProxyApiKey, rhApiKeyId]);
+            }, [currentUser, notes, colorLabels, categories, nextId, collapsedCategories, darkMode, finnhubApiKey, marketauxApiKey, watchList, nickname, profilePhoto, notesSortMode, notesGroupMode, hideLegendPanel, hideToolbarPanel, sharesPrivacyMode, ibkrProxyBaseUrl, ibkrProxyApiKey, ibkrAccountId, rhProxyBaseUrl, rhProxyApiKey, rhApiKeyId]);
 
             const handleLogin = async (e) => {
                 e.preventDefault();
@@ -2683,17 +2687,21 @@ const firebaseConfig = {
                                     />
                                     <div className="flex items-center gap-3 mb-4">
                                         <input
-                                            type="number"
-                                            value={expandedNote.shares || ''}
+                                            type={sharesPrivacyMode === 'hide' ? 'text' : 'number'}
+                                            value={sharesPrivacyMode === 'hide' ? '••••' : (expandedNote.shares || '')}
                                             onChange={(e) => {
+                                                if (sharesPrivacyMode === 'hide') return;
                                                 const newShares = parseFloat(e.target.value) || 0;
                                                 setNotes(notes.map(n => n.id === expandedNote.id ? {...n, shares: newShares} : n));
                                                 setExpandedNote({...expandedNote, shares: newShares});
                                             }}
+                                            readOnly={sharesPrivacyMode === 'hide'}
                                             placeholder="# shares"
-                                            className="w-32 bg-white bg-opacity-50 border border-gray-400 rounded px-3 py-2 text-lg text-gray-700 placeholder-gray-400"
+                                            className={`w-32 bg-white bg-opacity-50 border border-gray-400 rounded px-3 py-2 text-lg text-gray-700 placeholder-gray-400 ${sharesPrivacyMode === 'blur' ? 'blur-sm select-none' : ''} ${sharesPrivacyMode === 'hide' ? 'tracking-[0.25em] text-center cursor-not-allowed' : ''}`}
                                         />
-                                        <span className="text-gray-600">shares owned (for portfolio)</span>
+                                        <span className={`text-gray-600 ${sharesPrivacyMode === 'blur' ? 'blur-sm select-none' : ''}`}>
+                                            {sharesPrivacyMode === 'hide' ? 'shares hidden' : 'shares owned (for portfolio)'}
+                                        </span>
                                     </div>
                                     <textarea
                                         value={expandedNote.text}
@@ -3327,6 +3335,22 @@ const firebaseConfig = {
                                             >
                                                 {hideToolbarPanel ? 'Show Toolbar' : 'Hide Toolbar'}
                                             </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => setSharesPrivacyMode(sharesPrivacyMode === 'blur' ? 'show' : 'blur')}
+                                                className={`ml-2 px-2.5 py-1 rounded text-xs font-semibold border ${sharesPrivacyMode === 'blur' ? (darkMode ? 'bg-blue-700 text-white border-blue-500' : 'bg-blue-600 text-white border-blue-600') : (darkMode ? 'bg-gray-800 text-gray-200 hover:bg-gray-700 border-gray-700' : 'bg-white text-gray-700 hover:bg-gray-100 border-gray-300')}`}
+                                                title="Blur share values on notes"
+                                            >
+                                                Blur Shares
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => setSharesPrivacyMode(sharesPrivacyMode === 'hide' ? 'show' : 'hide')}
+                                                className={`ml-2 px-2.5 py-1 rounded text-xs font-semibold border ${sharesPrivacyMode === 'hide' ? (darkMode ? 'bg-red-700 text-white border-red-500' : 'bg-red-600 text-white border-red-600') : (darkMode ? 'bg-gray-800 text-gray-200 hover:bg-gray-700 border-gray-700' : 'bg-white text-gray-700 hover:bg-gray-100 border-gray-300')}`}
+                                                title="Hide share values on notes"
+                                            >
+                                                Hide Shares
+                                            </button>
                                         </>
                                     )}
                                 </p>
@@ -3724,6 +3748,7 @@ const firebaseConfig = {
                                                     deleteNote={deleteNote}
                                                     updateNoteTitle={updateNoteTitle}
                                                     updateNoteShares={updateNoteShares}
+                                                    sharesPrivacyMode={sharesPrivacyMode}
                                                     setExpandedNote={setExpandedNote}
                                                     sanitizeContent={sanitizeContent}
                                                     validateContent={validateContent}
@@ -3759,6 +3784,7 @@ const firebaseConfig = {
                                             deleteNote={deleteNote}
                                             updateNoteTitle={updateNoteTitle}
                                             updateNoteShares={updateNoteShares}
+                                            sharesPrivacyMode={sharesPrivacyMode}
                                             setExpandedNote={setExpandedNote}
                                             sanitizeContent={sanitizeContent}
                                             validateContent={validateContent}
