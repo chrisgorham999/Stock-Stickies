@@ -1793,7 +1793,7 @@ const firebaseConfig = {
                             responsive: true,
                             maintainAspectRatio: false,
                             layout: {
-                                padding: 20
+                                padding: { top: 20, right: 6, bottom: 20, left: 20 }
                             },
                             plugins: {
                                 legend: {
