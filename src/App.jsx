@@ -363,26 +363,6 @@ const firebaseConfig = {
             const [showApiKeySuccess, setShowApiKeySuccess] = useState(false);
             const [watchList, setWatchList] = useState([]);
 
-            // IBKR integration placeholders (individual account flow)
-            const [ibkrProxyBaseUrl, setIbkrProxyBaseUrl] = useState('https://YOUR-STOCK-STICKIES-BACKEND.example.com');
-            const [ibkrProxyApiKey, setIbkrProxyApiKey] = useState('');
-            const [ibkrAccountId, setIbkrAccountId] = useState(''); // e.g., U1234567
-            const [ibkrPositions, setIbkrPositions] = useState([]);
-            const [ibkrLoading, setIbkrLoading] = useState(false);
-            const [ibkrError, setIbkrError] = useState('');
-            const [ibkrLastSync, setIbkrLastSync] = useState(null);
-            const [ibkrFilter, setIbkrFilter] = useState('');
-            const [ibkrSortBy, setIbkrSortBy] = useState('marketValue'); // marketValue | symbol | pnl
-
-            // Robinhood Crypto API placeholders (proxy-backed, crypto-only)
-            const [rhProxyBaseUrl, setRhProxyBaseUrl] = useState('https://YOUR-STOCK-STICKIES-BACKEND.example.com');
-            const [rhProxyApiKey, setRhProxyApiKey] = useState('');
-            const [rhApiKeyId, setRhApiKeyId] = useState('');
-            const [rhPositions, setRhPositions] = useState([]);
-            const [rhLoading, setRhLoading] = useState(false);
-            const [rhError, setRhError] = useState('');
-            const [rhLastSync, setRhLastSync] = useState(null);
-
             // API key help popovers (click-to-toggle; closes on outside click / Escape)
             const [openHelp, setOpenHelp] = useState(null); // 'finnhub' | 'marketaux' | null
             const finnhubHelpRef = useRef(null);
@@ -539,12 +519,6 @@ const firebaseConfig = {
                             setHideLegendPanel(data.hideLegendPanel || false);
                             setHideToolbarPanel(data.hideToolbarPanel || false);
                             setSharesPrivacyMode(data.sharesPrivacyMode || 'show');
-                            setIbkrProxyBaseUrl(data.ibkrProxyBaseUrl || 'https://YOUR-STOCK-STICKIES-BACKEND.example.com');
-                            setIbkrProxyApiKey(data.ibkrProxyApiKey || '');
-                            setIbkrAccountId(data.ibkrAccountId || '');
-                            setRhProxyBaseUrl(data.rhProxyBaseUrl || 'https://YOUR-STOCK-STICKIES-BACKEND.example.com');
-                            setRhProxyApiKey(data.rhProxyApiKey || '');
-                            setRhApiKeyId(data.rhApiKeyId || '');
 
                             // Reset loading flag after state updates settle
                             setTimeout(() => { isLoadingRef.current = false; }, 200);
@@ -613,12 +587,6 @@ const firebaseConfig = {
                             hideLegendPanel,
                             hideToolbarPanel,
                             sharesPrivacyMode,
-                            ibkrProxyBaseUrl,
-                            ibkrProxyApiKey,
-                            ibkrAccountId,
-                            rhProxyBaseUrl,
-                            rhProxyApiKey,
-                            rhApiKeyId,
                             updatedAt: firebase.firestore.FieldValue.serverTimestamp()
                         };
 
@@ -663,7 +631,7 @@ const firebaseConfig = {
                         if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
                     };
                 }
-            }, [notes, colorLabels, categories, nextId, collapsedCategories, darkMode, finnhubApiKey, marketauxApiKey, watchList, nickname, profilePhoto, notesSortMode, notesGroupMode, hideLegendPanel, hideToolbarPanel, sharesPrivacyMode, ibkrProxyBaseUrl, ibkrProxyApiKey, ibkrAccountId, rhProxyBaseUrl, rhProxyApiKey, rhApiKeyId]);
+            }, [notes, colorLabels, categories, nextId, collapsedCategories, darkMode, finnhubApiKey, marketauxApiKey, watchList, nickname, profilePhoto, notesSortMode, notesGroupMode, hideLegendPanel, hideToolbarPanel, sharesPrivacyMode]);
 
             useEffect(() => {
                 const handleBeforeUnload = async (e) => {
@@ -685,12 +653,6 @@ const firebaseConfig = {
                             hideLegendPanel,
                             hideToolbarPanel,
                             sharesPrivacyMode,
-                            ibkrProxyBaseUrl,
-                            ibkrProxyApiKey,
-                            ibkrAccountId,
-                            rhProxyBaseUrl,
-                            rhProxyApiKey,
-                            rhApiKeyId,
                             updatedAt: firebase.firestore.FieldValue.serverTimestamp()
                         };
 
@@ -726,7 +688,7 @@ const firebaseConfig = {
 
                 window.addEventListener('beforeunload', handleBeforeUnload);
                 return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-            }, [currentUser, notes, colorLabels, categories, nextId, collapsedCategories, darkMode, finnhubApiKey, marketauxApiKey, watchList, nickname, profilePhoto, notesSortMode, notesGroupMode, hideLegendPanel, hideToolbarPanel, sharesPrivacyMode, ibkrProxyBaseUrl, ibkrProxyApiKey, ibkrAccountId, rhProxyBaseUrl, rhProxyApiKey, rhApiKeyId]);
+            }, [currentUser, notes, colorLabels, categories, nextId, collapsedCategories, darkMode, finnhubApiKey, marketauxApiKey, watchList, nickname, profilePhoto, notesSortMode, notesGroupMode, hideLegendPanel, hideToolbarPanel, sharesPrivacyMode]);
 
             const handleLogin = async (e) => {
                 e.preventDefault();
@@ -869,9 +831,6 @@ const firebaseConfig = {
                         profilePhoto,
                         notesSortMode,
                         notesGroupMode,
-                        ibkrProxyBaseUrl,
-                        ibkrProxyApiKey,
-                        ibkrAccountId,
                         updatedAt: firebase.firestore.FieldValue.serverTimestamp()
                     };
 
@@ -930,121 +889,6 @@ const firebaseConfig = {
             const removeFromWatchList = (ticker) => {
                 isSavingRef.current = true;
                 setWatchList(watchList.filter(t => t !== ticker));
-            };
-
-            const fetchIbkrPortfolio = async ({ silent = false } = {}) => {
-                if (!silent) setIbkrError('');
-
-                if (!ibkrAccountId.trim()) {
-                    if (!silent) setIbkrError('Add your IBKR account ID to load positions.');
-                    return;
-                }
-
-                if (!silent) setIbkrLoading(true);
-                try {
-                    if (!ibkrProxyBaseUrl.trim()) {
-                        if (!silent) setIbkrError('Add your backend proxy URL to load IBKR positions.');
-                        if (!silent) setIbkrLoading(false);
-                        return;
-                    }
-
-                    const proxyUrl = `${ibkrProxyBaseUrl.replace(/\/$/, '')}/api/ibkr/portfolio/positions`;
-                    const response = await fetchWithRetry(proxyUrl, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            ...(ibkrProxyApiKey ? { 'x-api-key': ibkrProxyApiKey.trim() } : {})
-                        },
-                        body: JSON.stringify({
-                            accountId: ibkrAccountId.trim(),
-                            pageId: 0
-                        })
-                    }, { retries: 3, backoffMs: 800, timeoutMs: 15000 });
-
-                    const data = await response.json();
-                    const normalized = Array.isArray(data)
-                        ? data
-                        : (Array.isArray(data?.positions) ? data.positions : []);
-
-                    setIbkrPositions(normalized.map((p) => ({
-                        symbol: p?.ticker || p?.symbol || p?.contractDesc || 'UNKNOWN',
-                        conid: p?.conid || null,
-                        position: Number(p?.position || p?.qty || 0),
-                        marketPrice: Number(p?.mktPrice || p?.marketPrice || 0),
-                        marketValue: Number(p?.mktValue || p?.marketValue || 0),
-                        unrealizedPnl: Number(p?.unrealizedPnl || p?.unrealizedPNL || 0)
-                    })));
-                    setIbkrLastSync(new Date().toISOString());
-                } catch (err) {
-                    console.error('IBKR portfolio fetch failed:', err);
-                    if (!silent) setIbkrError(err?.message || 'Failed to load IBKR positions.');
-                } finally {
-                    if (!silent) setIbkrLoading(false);
-                }
-            };
-
-            useEffect(() => {
-                const canAutoRefresh = mainTab === 'portfolio'
-                    && !!ibkrAccountId.trim()
-                    && !!ibkrProxyBaseUrl.trim();
-
-                if (!canAutoRefresh) return;
-
-                // Initial background refresh on entering Portfolio tab
-                fetchIbkrPortfolio({ silent: true });
-                fetchRobinhoodCryptoPortfolio({ silent: true });
-
-                const intervalId = setInterval(() => {
-                    fetchIbkrPortfolio({ silent: true });
-                    fetchRobinhoodCryptoPortfolio({ silent: true });
-                }, 60000);
-
-                return () => clearInterval(intervalId);
-            }, [mainTab, ibkrAccountId, ibkrProxyBaseUrl, rhProxyBaseUrl, rhProxyApiKey, rhApiKeyId]);
-
-
-            const fetchRobinhoodCryptoPortfolio = async ({ silent = false } = {}) => {
-                if (!silent) setRhError('');
-
-                if (!rhProxyBaseUrl.trim()) {
-                    if (!silent) setRhError('Add your backend proxy URL to load Robinhood crypto positions.');
-                    return;
-                }
-
-                if (!silent) setRhLoading(true);
-                try {
-                    const proxyUrl = `${rhProxyBaseUrl.replace(/\/$/, '')}/api/robinhood/crypto/holdings`;
-                    const response = await fetchWithRetry(proxyUrl, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            ...(rhProxyApiKey ? { 'x-api-key': rhProxyApiKey.trim() } : {})
-                        },
-                        body: JSON.stringify({
-                            apiKeyId: rhApiKeyId.trim() || undefined
-                        })
-                    }, { retries: 3, backoffMs: 800, timeoutMs: 15000 });
-
-                    const data = await response.json();
-                    const normalized = Array.isArray(data)
-                        ? data
-                        : (Array.isArray(data?.holdings) ? data.holdings : []);
-
-                    setRhPositions(normalized.map((h) => ({
-                        symbol: h?.asset_symbol || h?.symbol || h?.currency_pair_id || 'UNKNOWN',
-                        quantity: Number(h?.quantity || h?.total_quantity || 0),
-                        marketPrice: Number(h?.mark_price || h?.price || 0),
-                        marketValue: Number(h?.market_value || h?.value || 0),
-                        costBasis: Number(h?.cost_basis || 0),
-                        unrealizedPnl: Number(h?.unrealized_pnl || 0)
-                    })));
-                    setRhLastSync(new Date().toISOString());
-                } catch (err) {
-                    console.error('Robinhood crypto fetch failed:', err);
-                    if (!silent) setRhError(err?.message || 'Failed to load Robinhood crypto positions.');
-                } finally {
-                    if (!silent) setRhLoading(false);
-                }
             };
 
             const handleRefreshPortfolioPrices = async () => {
@@ -1890,52 +1734,6 @@ const firebaseConfig = {
             const totalPortfolioValue = useMemo(() =>
                 portfolioData.reduce((sum, h) => sum + h.value, 0),
             [portfolioData]);
-
-            const totalIbkrMarketValue = useMemo(() =>
-                ibkrPositions.reduce((sum, p) => sum + (Number(p.marketValue) || 0), 0),
-            [ibkrPositions]);
-
-            const ibkrVisiblePositions = useMemo(() => {
-                const query = ibkrFilter.trim().toUpperCase();
-                let list = ibkrPositions;
-
-                if (query) {
-                    list = list.filter((p) => String(p.symbol || '').toUpperCase().includes(query));
-                }
-
-                const sorted = [...list].sort((a, b) => {
-                    if (ibkrSortBy === 'symbol') return String(a.symbol || '').localeCompare(String(b.symbol || ''));
-                    if (ibkrSortBy === 'pnl') return (Number(b.unrealizedPnl) || 0) - (Number(a.unrealizedPnl) || 0);
-                    return (Number(b.marketValue) || 0) - (Number(a.marketValue) || 0);
-                });
-
-                return sorted;
-            }, [ibkrPositions, ibkrFilter, ibkrSortBy]);
-
-            const ibkrConnectionStatus = useMemo(() => {
-                if (ibkrLoading) return 'syncing';
-                if (ibkrError) return 'error';
-                if (!ibkrLastSync) return 'idle';
-
-                const ageMs = Date.now() - new Date(ibkrLastSync).getTime();
-                if (ageMs > 5 * 60 * 1000) return 'stale';
-                return 'connected';
-            }, [ibkrLoading, ibkrError, ibkrLastSync]);
-
-
-            const totalRhMarketValue = useMemo(() =>
-                rhPositions.reduce((sum, p) => sum + (Number(p.marketValue) || 0), 0),
-            [rhPositions]);
-
-            const rhConnectionStatus = useMemo(() => {
-                if (rhLoading) return 'syncing';
-                if (rhError) return 'error';
-                if (!rhLastSync) return 'idle';
-
-                const ageMs = Date.now() - new Date(rhLastSync).getTime();
-                if (ageMs > 5 * 60 * 1000) return 'stale';
-                return 'connected';
-            }, [rhLoading, rhError, rhLastSync]);
 
             // Update shares for a note
             const updateNoteShares = (noteId, shares) => {
@@ -3888,11 +3686,6 @@ const firebaseConfig = {
                                     <div className="flex items-center justify-between mb-4">
                                         <h3 className={`text-lg font-semibold ${darkMode ? 'text-white' : 'text-gray-800'}`}>Watch List</h3>
                                     </div>
-                                    {mainTab === 'portfolio' && !isOwnerPortfolioUser && (
-                                        <p className={`text-xs mb-3 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                                            For Brokerage integrations with IBKR, contact redonx99@gmail.com
-                                        </p>
-                                    )}
                                     <div className="flex gap-2">
                                         <input
                                             type="text"
@@ -3944,85 +3737,58 @@ const firebaseConfig = {
                                     </div>
                                 </div>
                             </div>
-                        ) : (mainTab === 'portfolio' && isOwnerPortfolioUser ? (
-                            /* IBKR Portfolio Panel (Portfolio tab) */
-                            <div className={`flex-shrink-0 w-full xl:w-[35%] mt-4 xl:mt-[198px] ${darkMode ? 'bg-gray-800' : 'bg-white'} rounded-lg shadow-lg flex flex-col`} style={{paddingBottom: '16px'}}>
-                                <div className="p-6 pb-4 border-b border-gray-200 dark:border-gray-700">
-                                    <h3 className={`text-lg font-semibold mb-3 ${darkMode ? 'text-white' : 'text-gray-800'}`}>CSP Portfolio (IBKR)</h3>
-                                    <div className="flex items-center justify-between mb-2">
-                                        <span className={`text-xs font-semibold uppercase tracking-wider ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Positions</span>
-                                        <span className={`px-2 py-1 rounded text-[10px] font-semibold uppercase ${ibkrConnectionStatus === 'connected' ? 'bg-green-600/20 text-green-400' : ibkrConnectionStatus === 'syncing' ? 'bg-blue-600/20 text-blue-400' : ibkrConnectionStatus === 'stale' ? 'bg-yellow-600/20 text-yellow-400' : ibkrConnectionStatus === 'error' ? 'bg-red-600/20 text-red-400' : 'bg-gray-600/20 text-gray-400'}`}>
-                                            {ibkrConnectionStatus}
-                                        </span>
+                        ) : (mainTab === 'portfolio' ? (
+                            /* Watch List Panel */
+                            <div className={`flex-shrink-0 w-full xl:w-[23%] mt-4 xl:mt-[198px] max-h-none xl:max-h-[calc(100vh-15rem)] ${darkMode ? 'bg-gray-800' : 'bg-white'} rounded-lg shadow-lg flex flex-col`}>
+                                <div className="p-6 pb-4">
+                                    <div className="flex items-center justify-between mb-4">
+                                        <h3 className={`text-lg font-semibold ${darkMode ? 'text-white' : 'text-gray-800'}`}>Watch List</h3>
                                     </div>
-                                    {ibkrError && <p className="mt-2 text-xs text-red-400">{ibkrError}</p>}
-                                    <div className={`mt-3 text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                                        Total IBKR Market Value: <span className="font-semibold">${totalIbkrMarketValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                                    </div>
-                                    {ibkrLastSync && (
-                                        <div className={`text-xs ${darkMode ? 'text-gray-500' : 'text-gray-500'}`}>
-                                            Last sync: {new Date(ibkrLastSync).toLocaleString()}
-                                        </div>
-                                    )}
-                                </div>
-                                <div className="px-6 py-4">
-                                    <div className="space-y-2 pb-2">
-                                        {ibkrVisiblePositions.length === 0 ? (
-                                            <p className={`text-sm text-center py-4 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                                                No IBKR positions loaded yet
-                                            </p>
-                                        ) : (
-                                            ibkrVisiblePositions.map((position, idx) => (
-                                                <div key={`${position.conid || position.symbol}-${idx}`} className={`p-3 rounded ${darkMode ? 'bg-gray-700' : 'bg-gray-100'}`}>
-                                                    <div className="flex items-center justify-between">
-                                                        <span className={`font-bold ${darkMode ? 'text-white' : 'text-gray-800'}`}>{position.symbol}</span>
-                                                        <span className={`text-sm ${darkMode ? 'text-gray-200' : 'text-gray-700'}`}>{position.position} sh</span>
-                                                    </div>
-                                                    <div className={`text-xs mt-1 ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
-                                                        MV: ${Number(position.marketValue || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                                                        {' · '}
-                                                        PnL: {Number(position.unrealizedPnl || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                                                    </div>
-                                                </div>
-                                            ))
-                                        )}
+                                    <div className="flex gap-2">
+                                        <input
+                                            type="text"
+                                            value={newWatchTicker}
+                                            onChange={(e) => {
+                                                const sanitized = sanitizeTicker(e.target.value);
+                                                setNewWatchTicker(sanitized);
+                                            }}
+                                            onKeyDown={(e) => e.key === 'Enter' && addToWatchList()}
+                                            placeholder="Add ticker..."
+                                            className={`flex-1 px-3 py-2 rounded border-2 ${darkMode ? 'bg-gray-700 text-white border-gray-600' : 'bg-white text-gray-800 border-gray-300'} focus:ring-2 focus:ring-blue-500 outline-none uppercase`}
+                                            maxLength={MAX_TITLE_LENGTH}
+                                        />
+                                        <button
+                                            onClick={addToWatchList}
+                                            className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded shadow"
+                                        >
+                                            <Plus size={20}/>
+                                        </button>
                                     </div>
                                 </div>
-                                <div className="mt-8 pt-6 px-6 pb-6 border-t border-gray-300 dark:border-gray-600">
-                                    <h3 className={`text-lg font-semibold mb-3 ${darkMode ? 'text-white' : 'text-gray-800'}`}>Robinhood Crypto API</h3>
-                                    <div className="flex items-center justify-between mb-2">
-                                        <span className={`text-xs font-semibold uppercase tracking-wider ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Positions</span>
-                                        <span className={`px-2 py-1 rounded text-[10px] font-semibold uppercase ${rhConnectionStatus === 'connected' ? 'bg-green-600/20 text-green-400' : rhConnectionStatus === 'syncing' ? 'bg-blue-600/20 text-blue-400' : rhConnectionStatus === 'stale' ? 'bg-yellow-600/20 text-yellow-400' : rhConnectionStatus === 'error' ? 'bg-red-600/20 text-red-400' : 'bg-gray-600/20 text-gray-400'}`}>
-                                            {rhConnectionStatus}
-                                        </span>
-                                    </div>
-                                    {rhError && <p className="mt-2 text-xs text-red-400">{rhError}</p>}
-                                    <div className={`mt-3 text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                                        Total Robinhood Crypto Value: <span className="font-semibold">${totalRhMarketValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                                    </div>
-                                    {rhLastSync && (
-                                        <div className={`text-xs ${darkMode ? 'text-gray-500' : 'text-gray-500'}`}>
-                                            Last sync: {new Date(rhLastSync).toLocaleString()}
-                                        </div>
-                                    )}
-
-                                    <div className="space-y-2 mt-3 max-h-64 overflow-y-auto">
-                                        {rhPositions.length === 0 ? (
+                                <div className="flex-1 overflow-y-auto px-6 pb-6">
+                                    <div className="space-y-2">
+                                        {watchList.length === 0 ? (
                                             <p className={`text-sm text-center py-4 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                                                No Robinhood crypto positions loaded yet
+                                                No tickers in watch list
                                             </p>
                                         ) : (
-                                            rhPositions.map((position, idx) => (
-                                                <div key={`${position.symbol}-${idx}`} className={`p-3 rounded ${darkMode ? 'bg-gray-700' : 'bg-gray-100'}`}>
-                                                    <div className="flex items-center justify-between">
-                                                        <span className={`font-bold ${darkMode ? 'text-white' : 'text-gray-800'}`}>{position.symbol}</span>
-                                                        <span className={`text-sm ${darkMode ? 'text-gray-200' : 'text-gray-700'}`}>{position.quantity}</span>
-                                                    </div>
-                                                    <div className={`text-xs mt-1 ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
-                                                        MV: ${Number(position.marketValue || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                                                        {' · '}
-                                                        PnL: {Number(position.unrealizedPnl || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                                                    </div>
+                                            watchList.map((ticker) => (
+                                                <div
+                                                    key={ticker}
+                                                    className={`flex items-center justify-between p-3 rounded cursor-pointer ${darkMode ? 'bg-gray-700 hover:bg-gray-600' : 'bg-gray-100 hover:bg-gray-200'} hover:shadow-md transition-all`}
+                                                    onClick={() => setWatchListModalTicker(ticker)}
+                                                >
+                                                    <span className={`font-bold text-lg ${darkMode ? 'text-white' : 'text-gray-800'}`}>
+                                                        {ticker}
+                                                    </span>
+                                                    <button
+                                                        onClick={(e) => { e.stopPropagation(); removeFromWatchList(ticker); }}
+                                                        className={`flex items-center justify-center w-8 h-8 rounded-full border ${darkMode ? 'border-red-400 text-red-300 hover:text-red-200 hover:border-red-300 hover:bg-red-900/20' : 'border-red-400 text-red-600 hover:text-red-700 hover:border-red-500 hover:bg-red-50'}`}
+                                                        aria-label={`Remove ${ticker} from watch list`}
+                                                        title="Remove from watch list"
+                                                    >
+                                                        <X size={18}/>
+                                                    </button>
                                                 </div>
                                             ))
                                         )}
