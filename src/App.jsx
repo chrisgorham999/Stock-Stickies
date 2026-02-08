@@ -3150,9 +3150,9 @@ const firebaseConfig = {
                     </div>
                 )}
 
-                <div className={`min-h-screen p-8 ${darkMode ? 'bg-gradient-to-br from-gray-900 to-gray-800' : 'bg-gradient-to-br from-gray-100 to-gray-200'}`}>
-                    <div className="flex gap-6 max-w-full mx-auto items-start">
-                        <div className="flex-grow" style={{width: mainTab === 'notes' ? '77%' : '65%'}}>
+                <div className={`min-h-screen p-4 sm:p-6 lg:p-8 ${darkMode ? 'bg-gradient-to-br from-gray-900 to-gray-800' : 'bg-gradient-to-br from-gray-100 to-gray-200'}`}>
+                    <div className="flex flex-col xl:flex-row gap-6 max-w-full mx-auto items-stretch xl:items-start">
+                        <div className={`w-full min-w-0 ${mainTab === 'notes' ? 'xl:w-[77%]' : 'xl:w-[65%]'}`}>
                         <div className="flex items-center justify-between mb-4">
                             <div>
                                 <div className="flex items-center gap-3">
@@ -3846,7 +3846,7 @@ const firebaseConfig = {
 
                         {(mainTab === 'notes') ? (
                             /* Watch List Panel */
-                            <div className={`flex-shrink-0 ${darkMode ? 'bg-gray-800' : 'bg-white'} rounded-lg shadow-lg flex flex-col`} style={{width: '23%', maxHeight: 'calc(100vh - 15rem)', marginTop: '198px'}}>
+                            <div className={`flex-shrink-0 w-full xl:w-[23%] mt-4 xl:mt-[198px] max-h-none xl:max-h-[calc(100vh-15rem)] ${darkMode ? 'bg-gray-800' : 'bg-white'} rounded-lg shadow-lg flex flex-col`}>
                                 <div className="p-6 pb-4">
                                     <div className="flex items-center justify-between mb-4">
                                         <h3 className={`text-lg font-semibold ${darkMode ? 'text-white' : 'text-gray-800'}`}>Watch List</h3>
@@ -3909,7 +3909,7 @@ const firebaseConfig = {
                             </div>
                         ) : (mainTab === 'portfolio' && isOwnerPortfolioUser ? (
                             /* IBKR Portfolio Panel (Portfolio tab) */
-                            <div className={`flex-shrink-0 ${darkMode ? 'bg-gray-800' : 'bg-white'} rounded-lg shadow-lg flex flex-col`} style={{width: '35%', marginTop: '198px', paddingBottom: '16px'}}>
+                            <div className={`flex-shrink-0 w-full xl:w-[35%] mt-4 xl:mt-[198px] ${darkMode ? 'bg-gray-800' : 'bg-white'} rounded-lg shadow-lg flex flex-col`} style={{paddingBottom: '16px'}}>
                                 <div className="p-6 pb-4 border-b border-gray-200 dark:border-gray-700">
                                     <h3 className={`text-lg font-semibold mb-3 ${darkMode ? 'text-white' : 'text-gray-800'}`}>CSP Portfolio (IBKR)</h3>
                                     <div className="flex items-center justify-between mb-2">
