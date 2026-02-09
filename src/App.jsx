@@ -3184,8 +3184,8 @@ const firebaseConfig = {
                                                 }
                                             }}
                                             placeholder="Finnhub API Key"
-                                            className={`px-4 py-3 rounded-lg border-2 ${darkMode ? 'bg-gray-800 text-white border-gray-600' : 'bg-white text-gray-800 border-gray-300'} focus:ring-2 focus:ring-blue-500 outline-none`}
-                                            style={{width: '200px'}}
+                                            className={`px-3 py-2 rounded-lg border-2 ${darkMode ? 'bg-gray-800 text-white border-gray-600' : 'bg-white text-gray-800 border-gray-300'} focus:ring-2 focus:ring-blue-500 outline-none`}
+                                            style={{width: '160px'}}
                                             maxLength={MAX_API_KEY_LENGTH}
                                         />
                                         <div className="relative" ref={finnhubHelpRef}>
@@ -3242,8 +3242,8 @@ const firebaseConfig = {
                                                 }
                                             }}
                                             placeholder="MarketAux API Key"
-                                            className={`px-4 py-3 rounded-lg border-2 ${darkMode ? 'bg-gray-800 text-white border-gray-600' : 'bg-white text-gray-800 border-gray-300'} focus:ring-2 focus:ring-blue-500 outline-none`}
-                                            style={{width: '200px'}}
+                                            className={`px-3 py-2 rounded-lg border-2 ${darkMode ? 'bg-gray-800 text-white border-gray-600' : 'bg-white text-gray-800 border-gray-300'} focus:ring-2 focus:ring-blue-500 outline-none`}
+                                            style={{width: '160px'}}
                                             maxLength={MAX_API_KEY_LENGTH}
                                         />
                                         <div className="relative" ref={marketauxHelpRef}>
