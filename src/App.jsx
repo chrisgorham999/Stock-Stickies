@@ -368,6 +368,13 @@ const firebaseConfig = {
             const finnhubHelpRef = useRef(null);
             const marketauxHelpRef = useRef(null);
 
+            // Keep page/overscroll background in sync with theme mode
+            useEffect(() => {
+                const bgColor = darkMode ? '#111827' : '#f3f4f6';
+                document.documentElement.style.backgroundColor = bgColor;
+                document.body.style.backgroundColor = bgColor;
+            }, [darkMode]);
+
             // Quick Start Guide (logged-in only)
             const [quickStartOpen, setQuickStartOpen] = useState(false);
 
