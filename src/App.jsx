@@ -3816,7 +3816,7 @@ const firebaseConfig = {
                     <span className="mx-2">·</span>
                     <button type="button" onClick={() => setLegalView('terms')} className="text-red-400 hover:text-blue-300">Terms of Use</button>
                     <span className="mx-2">·</span>
-                    Website created by <a href="https://github.com/99redder" target="_blank" rel="noopener noreferrer" className="text-red-400 hover:text-blue-300">Red</a>
+                    Website created and maintained by <a href="https://www.easternshore.ai" target="_blank" rel="noopener noreferrer" className="text-red-400 hover:text-blue-300">Eastern Shore AI, LLC</a>
                 </footer>
                 </>
             );
