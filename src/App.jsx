@@ -1,3 +1,64 @@
+// =============================================================================
+// FILE: src/App.jsx  (~3840 lines)
+// ROLE: Entire Stock Stickies application — one React component (StickyNotesApp)
+//       plus top-level constants/helpers above it.
+//
+// QUICK NAVIGATION FOR AI AGENTS
+// ─────────────────────────────────────────────────────────────────────────────
+// IMPORTS & FIREBASE INIT        Lines   1–39
+// SVG ICON COMPONENTS            Lines  41–67
+// CONSTANTS (colors, limits)     Lines  68–99
+// VALIDATION HELPERS             Lines 100–169
+// UTILITY FUNCTIONS              Lines 170–329
+//   └─ buildApiUrl, sleep, fetchWithRetry, stock/news fetch helpers
+//
+// StickyNotesApp (function start) Line  330
+//
+// STATE DECLARATIONS             Lines 331–425
+//   ├─ Auth/UI state             Lines 331–340
+//   ├─ isSavingRef               Line  341   ← blocks snapshot during save
+//   ├─ isLoadingRef              Line  342   ← blocks repair during data load
+//   ├─ Notes & categories        Lines 344–350
+//   ├─ Category modals           Lines 351–357
+//   ├─ Expanded note / stock     Lines 358–364
+//   └─ Watch list, profile, portfolio, tabs, sort, privacy
+//
+// useEFFECTS (in order)
+//   Dark mode sync               Line  372
+//   Auth state listener          Line  487
+//   Firestore onSnapshot         Line  503   ← loads data; sets isLoadingRef
+//   Auto-save (debounced 2s)     Line  571
+//   beforeunload save            Line  643
+//   Stock data fetch             Line 1183
+//   Orphan note repair           Line 1326   ← skips if isChangingColorRef/isLoadingRef
+//   Missing label repair         Line 1343   ← skips if isLoadingRef
+//   Watch list / news fetch      Line 1358
+//   Portfolio price fetch        Line 1617   ← 9:35 AM / 1 PM / 4:05 PM EST
+//
+// CORE FUNCTIONS
+//   handleLogin                  Line  700
+//   syncNow                      Line  825
+//   handleLogout                 Line 1067
+//   classifyNote                 Line 1085
+//   deleteNote                   Line 1089
+//
+// CATEGORY MANAGEMENT            Line 1095
+//   getAvailableColors, addCategory, handleDeleteCategory,
+//   confirmDeleteCategory, changeCategoryColor (uses isChangingColorRef ~1140)
+//
+// JSX / UI COMPONENTS
+//   Login page JSX               Line ~2077
+//   Legal modals (main app)      Line ~2381
+//   Expanded note modal          Line ~2461
+//   Add Category modal           Line ~2900
+//   Main toolbar                 Line ~3100
+//   Notes grid + legend          Line ~3400
+//   Watch List panel             Line ~3700
+//   Footer                       Line ~3823
+//
+// export default StickyNotesApp  Line 3839
+// =============================================================================
+
 import React, { useState, useEffect, useRef, useMemo } from 'react'
 import firebase from 'firebase/compat/app'
 import 'firebase/compat/auth'

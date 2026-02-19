@@ -4,8 +4,10 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-    <title>Stock Stickies</title>
-    <meta name="description" content="Stock Stickies — sticky notes for stocks with portfolio tracking, quotes, and news." />
+    <!-- Primary SEO -->
+    <title>Stock Stickies — Track Your Stock Positions & Notes</title>
+    <meta name="description" content="Stock Stickies is a free web app to track your stock positions with color-coded sticky notes, live quotes, portfolio charts, earnings dates, and real-time news. Organize holdings by category — Core, Swing, Value, Growth, and more." />
+    <meta name="keywords" content="stock notes app, track stock positions, stock portfolio tracker, stock sticky notes, investment notes, stock position tracker, stock market notes, portfolio notes, stock watchlist, stock holdings tracker" />
     <link rel="canonical" href="https://stockstickies.com/" />
 
     <!-- Basic CSP (GitHub Pages: meta-based; no server headers) -->
@@ -14,11 +16,57 @@
       content="default-src 'self'; script-src 'self' https://www.google.com https://www.gstatic.com https://www.gstatic.com/recaptcha/ https://apis.google.com https://accounts.google.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: https: blob:; connect-src 'self' https://finnhub.io https://api.marketaux.com https://*.firebaseio.com https://*.googleapis.com https://firebase.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://www.google.com wss://*.firebaseio.com; font-src 'self' data: https:; frame-src 'self' https: https://www.google.com https://accounts.google.com; object-src 'none'; base-uri 'self'; form-action 'self';"
     />
 
+    <!-- Favicon -->
     <link rel="icon" type="image/svg+xml" href="/assets/stock-stickies-favicon.svg" />
-    <meta property="og:title" content="Stock Stickies" />
-    <meta property="og:description" content="Sticky notes for stocks with portfolio tracking, quotes, and news." />
+
+    <!-- Open Graph -->
+    <meta property="og:title" content="Stock Stickies — Track Your Stock Positions & Notes" />
+    <meta property="og:description" content="Organize your stock holdings with color-coded sticky notes. Live quotes, portfolio pie chart, earnings dates, and news — all in one place." />
     <meta property="og:url" content="https://stockstickies.com/" />
     <meta property="og:type" content="website" />
+    <meta property="og:image" content="https://stockstickies.com/assets/stock-stickies-google-cloud-logo-1024.png" />
+    <meta property="og:image:width" content="1024" />
+    <meta property="og:image:height" content="1024" />
+    <meta property="og:site_name" content="Stock Stickies" />
+
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Stock Stickies — Track Your Stock Positions & Notes" />
+    <meta name="twitter:description" content="Organize your stock holdings with color-coded sticky notes. Live quotes, portfolio pie chart, earnings dates, and news." />
+    <meta name="twitter:image" content="https://stockstickies.com/assets/stock-stickies-google-cloud-logo-1024.png" />
+
+    <!-- JSON-LD Structured Data -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebApplication",
+      "name": "Stock Stickies",
+      "url": "https://stockstickies.com/",
+      "description": "A free web app to track your stock positions and investment notes with color-coded sticky notes, live stock quotes, a portfolio pie chart, earnings dates, and real-time news.",
+      "applicationCategory": "FinanceApplication",
+      "operatingSystem": "All",
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "USD"
+      },
+      "featureList": [
+        "Color-coded stock sticky notes",
+        "Real-time stock quotes via Finnhub",
+        "Portfolio pie chart with live prices",
+        "Stock watchlist",
+        "Earnings date tracking",
+        "Stock news feed",
+        "Cloud sync via Firebase",
+        "Dark mode"
+      ],
+      "creator": {
+        "@type": "Organization",
+        "name": "Eastern Shore AI, LLC",
+        "url": "https://www.easternshore.ai"
+      }
+    }
+    </script>
   </head>
   <body>
     <div id="root"></div>

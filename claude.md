@@ -1,198 +1,292 @@
-# Stock Stickies - Project Context
+# Stock Stickies — Project Context
 
 ## Overview
-A single-page React application for managing stock-related sticky notes with portfolio tracking, real-time stock data, and cloud sync via Firebase.
+A React SPA for managing stock-related sticky notes with portfolio tracking, real-time stock quotes, news, and cloud sync via Firebase. Deployed to GitHub Pages at `https://stockstickies.com`.
+
+---
 
 ## Tech Stack
-- **Frontend**: React 18 (via CDN), Babel for JSX transpilation
-- **Styling**: Tailwind CSS (via CDN)
-- **Backend**: Firebase Firestore (real-time database), Firebase Authentication
-- **APIs**: Finnhub (stock quotes), MarketAux (news)
-- **Charts**: Chart.js with Data Labels plugin
-- **Security**: Firebase App Check with reCAPTCHA v3, AES-GCM encryption for API keys
+| Layer | Technology |
+|---|---|
+| Frontend | React 19 (npm) |
+| Build Tool | Vite 7 |
+| Styling | Tailwind CSS v4 (via `@tailwindcss/vite` plugin) |
+| Auth & DB | Firebase v12 — Firestore + Firebase Auth |
+| Security | Firebase App Check with reCAPTCHA v3 |
+| Stock API | Finnhub (quotes, fundamentals, earnings) |
+| News API | MarketAux |
+| Charts | Chart.js v4 + chartjs-plugin-datalabels |
+| Screenshot | html2canvas |
+
+---
 
 ## File Structure
 ```
 Sticky-Notes/
-├── index.html          # Single-file application (all code embedded)
-├── claude.md           # This file - project context
+├── index.html                         # Vite entry point — SEO meta tags, JSON-LD schema live here
+├── vite.config.js                     # Vite config (react + tailwindcss plugins)
+├── package.json                       # npm scripts: dev, build, lint, preview
+├── eslint.config.js
+├── CLAUDE.md                          # This file
 ├── ENCRYPTION_IMPLEMENTATION.md
-└── SECURITY_RECOMMENDATIONS.md
+├── SECURITY_RECOMMENDATIONS.md
+├── CNAME                              # GitHub Pages domain → www.stockstickies.com
+├── public/
+│   ├── robots.txt                     # SEO: allow all, link to sitemap
+│   ├── sitemap.xml                    # SEO: canonical URL for the SPA
+│   └── assets/
+│       ├── stock-stickies-favicon.svg
+│       ├── stock-stickies-google-cloud-logo-1024.png   # OG image
+│       └── stock-stickies-google-cloud-logo-512.png
+├── src/
+│   ├── main.jsx                       # React root render (ReactDOM.createRoot)
+│   ├── App.jsx                        # ENTIRE application (~3840 lines) — see map below
+│   ├── App.css
+│   ├── index.css
+│   └── components/
+│       └── NoteCard.jsx               # Draggable note card component
+└── assets/                            # Mirror of public/assets (keep in sync)
 ```
+
+### Build & Deploy
+```bash
+npm run dev        # Local dev server (Vite HMR)
+npm run build      # Produces dist/ — then push to GitHub Pages
+npm run preview    # Preview dist/ locally
+```
+GitHub Pages reads from the `main` branch. The `CNAME` file routes `www.stockstickies.com` to the Pages site.
+
+---
+
+## src/App.jsx — Navigation Map (~3840 lines)
+
+**This is a single-file React component.** All logic, state, hooks, and JSX live in `StickyNotesApp` (line 330–3838) plus top-level helpers.
+
+### Top-level constants & utilities (Lines 1–329)
+| Lines | What |
+|---|---|
+| 1–9 | Imports (React, Firebase, Chart.js, html2canvas, NoteCard) |
+| 11–39 | Firebase init (firebaseConfig, appCheck, db, auth) |
+| 41–67 | SVG icon components (Plus, X, Edit2, Check, LogOut, Moon, Sun, etc.) |
+| 68–99 | Constants: `DEFAULT_COLOR_LABELS`, `DEFAULT_COLORS`, `AVAILABLE_COLORS`, `MIN/MAX_CATEGORIES`, validation limits |
+| 100–169 | Validation & sanitization functions: `validateTicker`, `sanitizeTicker`, `validateApiKey`, `validateContent`, `validateNickname`, `sanitizeContent` |
+| 161–329 | Utility functions: `buildApiUrl`, `sleep`, `fetchWithRetry`, stock/news fetch helpers |
+
+### StickyNotesApp component (Line 330–3838)
+
+#### State declarations (Lines 331–425)
+| Lines | State |
+|---|---|
+| 331–340 | Auth/UI: `currentUser`, `loginUsername`, `loginPassword`, `isSignup`, `loginError`, `darkMode`, `isResettingPassword`, `resetSuccess`, `legalView`, `syncStatus` |
+| 341–343 | Refs: `isSavingRef`, `isLoadingRef`, `saveTimeoutRef` |
+| 344–350 | Notes & categories: `notes`, `nextId`, `colorLabels`, `editingLabel`, `tempLabel`, `collapsedCategories`, `categories` |
+| 351–357 | Category modals: `showAddCategoryModal`, `newCategoryLabel`, `newCategoryColor`, `categoryToDelete`, `reassignTarget`, `editingCategoryColor` |
+| 358–364 | Expanded note / stock: `expandedNote`, `stockData`, `stockLoading`, `stockError`, `finnhubApiKey`, `showApiKeySuccess` |
+| 364–425 | Watch list, UI prefs, profile, portfolio, tabs, sort/group, privacy mode |
+
+#### Critical Refs (Race Condition Guards)
+| Ref | Line | Purpose |
+|---|---|---|
+| `isSavingRef` | 341 | Blocks Firestore onSnapshot from overwriting during a save |
+| `isLoadingRef` | 342 | Prevents orphan/label repair from running during initial data load |
+| `isChangingColorRef` | 1140 | Prevents orphan repair from misfiring during category color change |
+
+#### useEffects — in order of declaration
+| Lines | Effect |
+|---|---|
+| 372–428 | Dark mode sync to `<html>` element; body background class |
+| 429–448 | Various UI cleanup effects (help modals, outside-click handlers) |
+| 449–468 | Another outside-click / Escape handler |
+| 469–484 | Login help modal outside-click / Escape |
+| 487–501 | Firebase Auth state listener (`onAuthStateChanged`) |
+| 503–570 | **Firestore onSnapshot** — loads data on login; categories FIRST then notes; sets `isLoadingRef`; 200ms delay to clear |
+| 571–641 | **Auto-save** — debounced 2s Firestore write triggered by all data changes |
+| 643–698 | `beforeunload` save — writes to Firestore before page close |
+| 1183–1325 | Stock data fetching when `expandedNote` changes |
+| 1326–1342 | **Orphan repair** — moves notes with missing category to first category; skips if `isChangingColorRef` or `isLoadingRef` |
+| 1343–1357 | **Missing label repair** — resets blank category labels to "Category"; skips if `isLoadingRef` |
+| 1358–1493 | Watch list quote fetching; news fetching |
+| 1494–1617 | Various UI effects (portfolio card screenshot, etc.) |
+| 1617–1726 | **Portfolio price fetching** — updates at 9:35 AM, 1:00 PM, 4:05 PM EST; 8-hour cache |
+| 1727–1751 | Additional portfolio computed data effects |
+| 1752+ | Remaining cleanup/sync effects |
+
+#### Core functions
+| Lines | Function | Notes |
+|---|---|---|
+| 700–824 | `handleLogin` | Firebase email/password auth; also handles signup & password reset |
+| 825–897+ | `syncNow` | Awaited Firestore write; called by auto-save, beforeunload, and logout |
+| 1067–1082 | `handleLogout` | Awaits `syncNow`; resets `isSavingRef`/`isLoadingRef`/`saveTimeoutRef`; signs out |
+| 1085–1088 | `classifyNote` | Sets `note.color` and `note.classified = true` |
+| 1089–1093 | `deleteNote` | Filters note from state |
+| 1095–1094 | Category management — see table below |
+
+#### Category management (Lines ~1095–1182)
+| Function | Purpose |
+|---|---|
+| `getAvailableColors()` | Colors not currently assigned to a category |
+| `getNotesCountForCategory(color)` | Count of notes for a given category color |
+| `addCategory(color, label)` | Push new category; max 10 |
+| `handleDeleteCategory(color)` | If notes exist, open reassign modal; else delete immediately |
+| `confirmDeleteCategory()` | Execute deletion after reassignment confirmed |
+| `changeCategoryColor(oldColor, newColor)` | Sets `isChangingColorRef`; updates categories + notes; clears flag after 100ms |
+
+#### UI / JSX layout (Lines ~1752–3838)
+| Lines | UI Block |
+|---|---|
+| ~1887–1944 | Login help modal |
+| ~1945–2075 | Legal modals (Privacy Policy, Terms of Use) — login page copy |
+| ~2077–2115 | **Login page** (form, signup toggle, password reset, Eastern Shore AI credit, Privacy/Terms) |
+| ~2381–2460 | Legal modals — main app copy |
+| ~2461–2600 | **Expanded note modal** (stock data, shares input, chart, news) |
+| ~2900–2990 | Add Category modal |
+| ~2990–3020 | Reassign Notes modal (shown when deleting a category with notes) |
+| ~3100–3200 | Main toolbar (tab switcher, sort/group controls, portfolio download button) |
+| ~3280–3310 | Header area (logout, dark mode toggle, user info) |
+| ~3400–3690 | **Notes grid** — category sections with notes, legend panel |
+| ~3700–3818 | **Watch List panel** (sidebar) |
+| ~3823–3834 | **Footer** (copyright, Privacy/Terms buttons, Eastern Shore AI credit) |
+
+---
 
 ## Key Features
-1. **Sticky Notes**: Create, edit, delete notes with ticker symbols and share counts
-2. **Categories**: Customizable color-coded categories (add, delete, change colors)
-3. **Portfolio View**: Pie chart visualization of holdings with real-time prices
-   - Updates 3x daily: 9:35 AM (market open), 1:00 PM (midday), 4:05 PM (market close) EST
-   - Prices cached locally to minimize API calls
-4. **Stock Data**: Live quotes, fundamentals, 52-week range, earnings dates
-5. **News Feed**: MarketAux integration for stock news
-6. **Watch List**: Track stocks without notes
-7. **Dark Mode**: Toggle between light/dark themes
-8. **Cloud Sync**: Real-time sync via Firebase with offline support
+1. **Sticky Notes** — Create, edit, delete notes; each note has a ticker symbol (1–5 chars) and optional share count
+2. **Categories** — Up to 10 color-coded categories (add, delete, rename, recolor); minimum 1
+3. **Portfolio View** — Pie chart of holdings with real-time prices; updates 3× daily at 9:35 AM, 1:00 PM, 4:05 PM EST; 8-hour cache
+4. **Stock Data** — Live quotes, fundamentals, 52-week range, earnings dates (Finnhub API)
+5. **News Feed** — Per-ticker news from MarketAux API
+6. **Watch List** — Track tickers without creating notes
+7. **Dark Mode** — Toggle; synced to `<html>` class and `localStorage`
+8. **Cloud Sync** — Firestore real-time sync with offline support; sync status indicator in UI
+9. **Shares Privacy Mode** — Toggle to hide share counts from view
 
-## Important Code Locations (index.html)
-
-### Constants & Configuration
-- **Lines 74-97**: Color constants (`DEFAULT_COLOR_LABELS`, `DEFAULT_COLORS`, `AVAILABLE_COLORS`, `MIN_CATEGORIES`, `MAX_CATEGORIES`)
-- **Lines 86-91**: Input validation constants
-
-### State Management
-- **Lines 294-345**: All useState declarations
-- **Line 304**: `isLoadingRef` - Prevents orphan repair during data load
-- **Line 311**: `categories` state (dynamic category colors)
-- **Lines 312-317**: Category modal states
-
-### Critical Refs (Race Condition Prevention)
-- **Line 303**: `isSavingRef` - Prevents loading during save
-- **Line 304**: `isLoadingRef` - Prevents orphan repair during load
-- **Line 703**: `isChangingColorRef` - Prevents orphan repair during color change
-
-### Core Functions
-- **Lines 535-567**: `handleLogin` - Authentication
-- **Lines 571-617**: `syncNow` - Firestore sync (properly awaited)
-- **Lines 641-649**: `handleLogout` - Awaits sync before logout
-- **Lines 651-653**: `classifyNote` - Assign note to category
-- **Lines 655-659**: `deleteNote` - Delete a note
-
-### Category Management Functions (Lines 661-730)
-- `getAvailableColors()` - Colors not in use
-- `getNotesCountForCategory()` - Count notes per category
-- `addCategory()` - Add new category
-- `handleDeleteCategory()` - Delete with reassignment check
-- `confirmDeleteCategory()` - Execute deletion after reassignment
-- `changeCategoryColor()` - Change category color (with race condition protection)
-
-### Auto-Repair Logic
-- **Lines 759-776**: Orphaned notes repair (skips during load/color change)
-- **Lines 778-791**: Missing category labels repair (skips during load)
-
-### Data Loading (Lines 364-425)
-- Firestore onSnapshot listener
-- Sets `isLoadingRef` during load to prevent orphan repair
-- Loads categories FIRST, then notes (order matters!)
-- 200ms delay before clearing loading flag
-
-### UI Components
-- **Lines 1268-1306**: Login page (dark mode styled)
-- **Lines 1291-1531**: Expanded note modal with stock data
-- **Lines 1684-1798**: Category management modals (Add Category, Reassign Notes)
-- **Lines 2075-2135**: Legend UI with add/delete/color-change buttons
-- **Lines 2136-2158**: Unclassified notes section
-- **Lines 2159-2220**: Category sections with notes grid
-- **Lines 2310-2312**: Fixed footer ("Website created by Red")
-
-## Race Condition Fixes
-
-### Problem: Notes moving to wrong category
-When changing category colors, a race condition occurred:
-1. `setCategories()` updated categories array
-2. Orphan repair ran before `setNotes()` completed
-3. Notes appeared "orphaned" and got moved to first category
-
-### Solution
-- Added `isChangingColorRef` flag set before color change
-- Orphan repair checks this flag and skips if true
-- Flag resets after 100ms timeout
-
-### Problem: Data not persisting on logout
-The logout function wasn't waiting for sync to complete.
-
-### Solution
-- `syncNow()` now properly awaits Firestore write
-- `handleLogout()` awaits `syncNow()` before signing out
-- Added `isLoadingRef` to prevent orphan repair during login data load
-- Data load order changed: categories first, then notes
-
-### Problem: Category labels resetting to "Category" on login
-The missing labels repair was running before colorLabels loaded from Firestore.
-
-### Solution
-- Added `isLoadingRef` check to missing labels repair useEffect
-- Repair now skips during initial data load
-
-### Problem: Categories and notes lost on logout/login
-The auto-save useEffect (line 437) was missing `categories` in updateData object.
-
-### Solution
-- Added `categories` to updateData in auto-save useEffect (line 440)
-- Now all three save locations include categories: syncNow, auto-save, beforeunload
-
-### Problem: Notes don't load on login until page refresh
-The `isSavingRef.current` was still `true` from a previous save, blocking data load.
-
-### Solution
-- Reset `isSavingRef`, `isLoadingRef`, and clear `saveTimeoutRef` in handleLogout
-- Ensures clean state when user logs back in
-
-## Color System
-Categories use Tailwind CSS background classes:
-```javascript
-AVAILABLE_COLORS = [
-  'bg-yellow-200', 'bg-yellow-300', 'bg-yellow-400',
-  'bg-pink-200', 'bg-pink-300', 'bg-pink-400',
-  'bg-blue-200', 'bg-blue-300', 'bg-blue-400',
-  'bg-green-200', 'bg-green-300', 'bg-green-400',
-  'bg-red-200', 'bg-red-300', 'bg-red-400',
-  'bg-orange-200', 'bg-orange-300', 'bg-orange-400',
-  'bg-purple-200', 'bg-purple-300', 'bg-purple-400',
-  'bg-teal-200', 'bg-teal-300', 'bg-cyan-200'
-]
-```
+---
 
 ## Note Object Structure
 ```javascript
 {
-  id: number,           // Unique identifier
-  title: string,        // Ticker symbol (1-5 chars, uppercase)
-  text: string,         // Note content (up to 10,000 chars)
-  color: string,        // Tailwind bg class (e.g., 'bg-yellow-200')
-  classified: boolean,  // Whether note has been categorized
-  shares?: number       // Optional: shares for portfolio tracking
+  id: number,            // Unique identifier (auto-increment)
+  title: string,         // Ticker symbol — 1–5 uppercase alphanumeric chars
+  text: string,          // Note content — up to 10,000 chars
+  color: string,         // Tailwind bg class (e.g., 'bg-blue-200')
+  classified: boolean,   // true if note has been assigned to a category
+  shares?: number        // Optional share count for portfolio tracking
 }
 ```
 
-## Portfolio Update Schedule
+---
+
+## Color System
+Categories use Tailwind CSS background classes. The full palette available for custom categories:
 ```javascript
+AVAILABLE_COLORS = [
+  'bg-yellow-200', 'bg-yellow-300', 'bg-yellow-400',
+  'bg-pink-200',   'bg-pink-300',   'bg-pink-400',
+  'bg-blue-200',   'bg-blue-300',   'bg-blue-400',
+  'bg-green-200',  'bg-green-300',  'bg-green-400',
+  'bg-red-200',    'bg-red-300',    'bg-red-400',
+  'bg-orange-200', 'bg-orange-300', 'bg-orange-400',
+  'bg-purple-200', 'bg-purple-300', 'bg-purple-400',
+  'bg-teal-200',   'bg-teal-300',   'bg-cyan-200'
+]
+```
+Default categories: Core Holding (`bg-blue-200`), Swing Trade (`bg-green-200`), Value (`bg-purple-200`), Growth (`bg-orange-200`), Speculative (`bg-red-300`).
+Unclassified notes use `bg-gray-300`.
+
+---
+
+## Race Condition Fixes
+
+### Problem: Notes moving to wrong category on color change
+`setCategories()` triggering orphan repair before `setNotes()` completes caused notes to appear orphaned.
+**Fix**: `isChangingColorRef` flag — orphan repair skips if set; cleared after 100ms timeout (line ~1165).
+
+### Problem: Data not persisting on logout
+Logout wasn't awaiting the Firestore sync.
+**Fix**: `syncNow()` is properly awaited; `handleLogout` calls `await syncNow()` (line 1069).
+
+### Problem: Category labels resetting to "Category" on login
+Missing-label repair ran before `colorLabels` loaded from Firestore.
+**Fix**: `isLoadingRef` check added to label repair useEffect (line ~1345).
+
+### Problem: Categories and notes lost on logout/login
+Auto-save useEffect was missing `categories` in the data object.
+**Fix**: `categories` added to `updateData` in auto-save useEffect (line ~571).
+
+### Problem: Notes don't load on login until page refresh
+`isSavingRef.current` remained `true` from a previous session, blocking data load.
+**Fix**: `handleLogout` resets `isSavingRef`, `isLoadingRef`, and clears `saveTimeoutRef` (lines 1072–1074).
+
+---
+
+## Portfolio Update Schedule
+```
 // 15-minute fetch windows (EST):
-// - Market open: 9:35-9:50 AM
-// - Midday: 1:00-1:15 PM
-// - Market close: 4:05-4:20 PM
+// - Market open:  9:35–9:50 AM
+// - Midday:       1:00–1:15 PM
+// - Market close: 4:05–4:20 PM
 // Cache expires after 8 hours
 ```
 
+---
+
+## Current Legal / Branding
+
+### Footer (main app, lines 3823–3834)
+```
+© {year} Stock Stickies. All rights reserved.
+Privacy Policy · Terms of Use
+Website created and maintained by Eastern Shore AI, LLC → https://www.easternshore.ai
+```
+
+### Login page legal area (lines ~2111–2116)
+Same Eastern Shore AI credit blurb appears above Privacy/Terms buttons on the login screen.
+
+---
+
+## SEO Setup (index.html)
+- `<title>`: Descriptive with stock tracking keywords
+- `<meta name="description">`: Search-intent focused copy
+- `<meta name="keywords">`: Stock tracking keyword list
+- Twitter Card meta tags (`twitter:card`, `twitter:title`, etc.)
+- Open Graph tags (`og:title`, `og:description`, `og:url`, `og:image`, `og:type`)
+  - OG image: `/assets/stock-stickies-google-cloud-logo-1024.png`
+- JSON-LD `WebApplication` schema (structured data for Google)
+- `<link rel="canonical" href="https://stockstickies.com/" />`
+- `public/robots.txt` — allows all crawlers, links to sitemap
+- `public/sitemap.xml` — canonical URL entry
+
+---
+
 ## Testing Checklist
-1. Login/logout functionality (verify data persists)
+1. Login/logout (verify data persists across sessions)
 2. Create/edit/delete notes
-3. Add/delete/recolor categories (notes should stay in place)
-4. Category reassignment when deleting with notes
+3. Add/delete/recolor categories (notes must stay in assigned category)
+4. Category reassignment modal when deleting a category with notes
 5. Dark mode toggle
-6. Portfolio chart updates at scheduled times
-7. Stock data fetching
-8. Cloud sync (check sync status indicator)
+6. Portfolio chart updates at scheduled times; privacy mode toggle
+7. Stock data & news fetching (requires Finnhub/MarketAux keys)
+8. Cloud sync status indicator
 9. Page refresh persistence
-10. Logout and login (categories and notes should persist)
+10. Logout → login (categories and notes persist)
+11. Watch list: add ticker, click to expand, remove
 
 ---
 
 ## Recent Updates (Feb 2026)
 
-### Footer Credit Branding
-- Updated app footer credit text to:
-  - **"Website created and maintained by Eastern Shore AI, LLC"**
-- Footer credit link now points to:
-  - `https://www.easternshore.ai`
-- Code location:
-  - `src/App.jsx` (footer/legal area near bottom of main app view)
+### Migrated from single-file CDN app to Vite/React build
+- Moved all code from `index.html` CDN script to `src/App.jsx`
+- React 18 (CDN) → React 19 (npm)
+- Tailwind CSS CDN → Tailwind CSS v4 via `@tailwindcss/vite`
+- Firebase CDN → Firebase v12 (npm package, compat SDK)
 
-### Login Screen Legal Area Update
-- Added the same Eastern Shore AI credit blurb to the **login page**, directly above the Privacy Policy and Terms of Use controls.
-- This keeps branding consistent between unauthenticated and authenticated views.
-- Code location:
-  - `src/App.jsx` in the login return block (the section with `Privacy Policy` and `Terms of Use` buttons)
+### Footer & Login Branding Update
+- Footer credit: "Website created and maintained by Eastern Shore AI, LLC" → `https://www.easternshore.ai`
+- Same credit block added to login page above Privacy/Terms controls
 
-### Current Legal/Credit Behavior
-- Main app footer: shows Privacy Policy, Terms of Use, and Eastern Shore AI credit/link.
-- Login page legal area: now also shows Eastern Shore AI credit/link above Privacy/Terms.
-- Legal modals still open via `setLegalView('privacy')` / `setLegalView('terms')`.
+### SEO Hardening
+- Expanded meta tags (keywords, Twitter Card, og:image)
+- JSON-LD `WebApplication` schema added to `index.html`
+- `robots.txt` and `sitemap.xml` added to `public/`
+- AI-agent navigation comment block added to top of `src/App.jsx`
