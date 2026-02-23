@@ -2059,7 +2059,7 @@ const firebaseConfig = {
                                                 </div>
                                                 <div>
                                                     <h3 className="text-white font-semibold mb-2">Contact</h3>
-                                                    <p>For privacy questions, contact support at <a href="mailto:redonx99@gmail.com" className="text-cyan-300 hover:text-cyan-200">redonx99@gmail.com</a>.</p>
+                                                    <p>For privacy questions, contact support at <a href="mailto:contact@easternshore.ai" className="text-cyan-300 hover:text-cyan-200">contact@easternshore.ai</a>.</p>
                                                 </div>
                                             </>
                                         ) : (
@@ -2495,7 +2495,7 @@ const firebaseConfig = {
                                         </div>
                                         <div>
                                             <h3 className="text-white font-semibold mb-2">Contact</h3>
-                                            <p>For privacy questions, contact support at <a href="mailto:redonx99@gmail.com" className="text-cyan-300 hover:text-cyan-200">redonx99@gmail.com</a>.</p>
+                                            <p>For privacy questions, contact support at <a href="mailto:contact@easternshore.ai" className="text-cyan-300 hover:text-cyan-200">contact@easternshore.ai</a>.</p>
                                         </div>
                                     </>
                                 ) : (
