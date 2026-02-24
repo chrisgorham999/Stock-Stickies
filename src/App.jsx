@@ -417,6 +417,7 @@ const firebaseConfig = {
             const [reassignTarget, setReassignTarget] = useState(null);
             const [editingCategoryColor, setEditingCategoryColor] = useState(null);
             const [noteToDelete, setNoteToDelete] = useState(null);
+            const [noticeModal, setNoticeModal] = useState({ open: false, title: '', message: '' });
             const [expandedNote, setExpandedNote] = useState(null);
             const [stockData, setStockData] = useState(null);
             const [stockLoading, setStockLoading] = useState(false);
@@ -847,7 +848,7 @@ const firebaseConfig = {
 
                 try {
                     if (!file.type?.startsWith('image/')) {
-                        alert('Please choose an image file.');
+                        showBrandedNotice('Please choose an image file.');
                         return;
                     }
 
@@ -857,7 +858,7 @@ const firebaseConfig = {
                     const resized = await resizeImageFileToJpegDataUrl(file);
                     const approxBytes = Math.ceil((resized.length * 3) / 4); // base64 → bytes (rough)
                     if (approxBytes > MAX_PROFILE_PHOTO_BYTES) {
-                        alert('That image is still a bit large. Try a smaller file.');
+                        showBrandedNotice('That image is still a bit large. Try a smaller file.');
                         return;
                     }
 
@@ -865,7 +866,7 @@ const firebaseConfig = {
                     setProfilePhoto(resized);
                 } catch (err) {
                     console.error('Profile photo error:', err);
-                    alert('Could not load that image. Try a different one.');
+                    showBrandedNotice('Could not load that image. Try a different one.');
                 }
             };
 
@@ -943,7 +944,7 @@ const firebaseConfig = {
                 }
                 // Validate ticker format
                 if (!validateTicker(sanitized)) {
-                    alert('Invalid ticker symbol. Please enter 1-5 letters/numbers.');
+                    showBrandedNotice('Invalid ticker symbol. Please enter 1-5 letters/numbers.');
                     return;
                 }
                 if (!watchList.includes(sanitized)) {
@@ -951,7 +952,7 @@ const firebaseConfig = {
                     setWatchList([...watchList, sanitized]);
                     setNewWatchTicker('');
                 } else {
-                    alert('Ticker already in watch list.');
+                    showBrandedNotice('Ticker already in watch list.');
                 }
             };
 
@@ -962,11 +963,11 @@ const firebaseConfig = {
 
             const handleRefreshPortfolioPrices = async () => {
                 if (!finnhubApiKey) {
-                    alert('Please add your Finnhub API key first.');
+                    showBrandedNotice('Please add your Finnhub API key first.');
                     return;
                 }
                 if (portfolioNotes.length === 0) {
-                    alert('No portfolio positions to refresh.');
+                    showBrandedNotice('No portfolio positions to refresh.');
                     return;
                 }
 
@@ -998,7 +999,7 @@ const firebaseConfig = {
             const handleDownloadPortfolioSnapshot = async () => {
                 const card = portfolioCardRef.current;
                 if (!card) {
-                    alert('Portfolio chart is not ready yet. Please try again in a moment.');
+                    showBrandedNotice('Portfolio chart is not ready yet. Please try again in a moment.');
                     return;
                 }
 
@@ -1122,7 +1123,7 @@ const firebaseConfig = {
                     URL.revokeObjectURL(url);
                 } catch (error) {
                     console.error('Snapshot download failed:', error);
-                    alert('Snapshot download failed. Please try again.');
+                    showBrandedNotice('Snapshot download failed. Please try again.');
                 }
             };
 
@@ -1156,6 +1157,10 @@ const firebaseConfig = {
                 if (!noteToDelete) return;
                 setNotes(notes.filter(n => n.id !== noteToDelete));
                 setNoteToDelete(null);
+            };
+
+            const showBrandedNotice = (message, title = 'Heads up') => {
+                setNoticeModal({ open: true, title, message });
             };
 
             // Category management functions
@@ -2585,7 +2590,7 @@ const firebaseConfig = {
                                         onChange={(e) => {
                                             const newText = sanitizeContent(e.target.value);
                                             if (!validateContent(newText)) {
-                                                alert(`Note content cannot exceed ${MAX_CONTENT_LENGTH} characters.`);
+                                                showBrandedNotice(`Note content cannot exceed ${MAX_CONTENT_LENGTH} characters.`);
                                                 return;
                                             }
                                             setNotes(notes.map(n => n.id === expandedNote.id ? {...n, text: newText} : n));
@@ -2946,6 +2951,31 @@ const firebaseConfig = {
                     </div>
                 )}
 
+                {/* Branded Notice Modal */}
+                {noticeModal.open && (
+                    <div className="fixed inset-0 bg-black bg-opacity-60 z-50 flex items-center justify-center p-4">
+                        <div className={`w-full max-w-md rounded-xl shadow-2xl border ${darkMode ? 'bg-gray-900 border-cyan-500/40' : 'bg-white border-cyan-200'}`}>
+                            <div className={`flex justify-between items-center p-4 border-b ${darkMode ? 'border-gray-700' : 'border-gray-200'}`}>
+                                <h2 className={`text-xl font-black tracking-wide ${darkMode ? 'text-cyan-300' : 'text-cyan-700'}`}>{noticeModal.title}</h2>
+                                <button onClick={() => setNoticeModal({ open: false, title: '', message: '' })} className={`${darkMode ? 'text-gray-400 hover:text-gray-200' : 'text-gray-600 hover:text-gray-800'}`}>
+                                    <X size={24}/>
+                                </button>
+                            </div>
+                            <div className="p-6">
+                                <p className={`text-sm leading-relaxed mb-6 ${darkMode ? 'text-gray-200' : 'text-gray-700'}`}>{noticeModal.message}</p>
+                                <div className="flex justify-end">
+                                    <button
+                                        onClick={() => setNoticeModal({ open: false, title: '', message: '' })}
+                                        className="px-4 py-2 rounded-lg font-semibold text-white bg-gradient-to-r from-fuchsia-600 to-cyan-500 hover:from-fuchsia-500 hover:to-cyan-400"
+                                    >
+                                        Got it
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
                 {/* Delete Note Confirmation Modal */}
                 {noteToDelete && (
                     <div className="fixed inset-0 bg-black bg-opacity-60 z-50 flex items-center justify-center p-4">
@@ -3181,7 +3211,7 @@ const firebaseConfig = {
                                             onChange={(e) => {
                                                 const newNickname = e.target.value;
                                                 if (newNickname.length > MAX_NICKNAME_LENGTH) {
-                                                    alert(`Nickname cannot exceed ${MAX_NICKNAME_LENGTH} characters.`);
+                                                    showBrandedNotice(`Nickname cannot exceed ${MAX_NICKNAME_LENGTH} characters.`);
                                                     return;
                                                 }
                                                 setNickname(newNickname);
@@ -3189,7 +3219,7 @@ const firebaseConfig = {
                                             onBlur={() => {
                                                 const trimmed = nickname.trim();
                                                 if (trimmed && !validateNickname(trimmed)) {
-                                                    alert('Invalid nickname. Only letters, numbers, spaces, and basic punctuation are allowed.');
+                                                    showBrandedNotice('Invalid nickname. Only letters, numbers, spaces, and basic punctuation are allowed.');
                                                     setNickname('');
                                                 } else {
                                                     setNickname(trimmed);
@@ -3203,7 +3233,7 @@ const firebaseConfig = {
                                                         setNickname(trimmed);
                                                         setEditingNickname(false);
                                                     } else if (trimmed) {
-                                                        alert('Invalid nickname. Only letters, numbers, spaces, and basic punctuation are allowed.');
+                                                        showBrandedNotice('Invalid nickname. Only letters, numbers, spaces, and basic punctuation are allowed.');
                                                     }
                                                 }
                                             }}
@@ -3282,7 +3312,7 @@ const firebaseConfig = {
                                             onChange={(e) => {
                                                 const newKey = e.target.value.trim();
                                                 if (newKey.length > MAX_API_KEY_LENGTH) {
-                                                    alert(`API key cannot exceed ${MAX_API_KEY_LENGTH} characters.`);
+                                                    showBrandedNotice(`API key cannot exceed ${MAX_API_KEY_LENGTH} characters.`);
                                                     return;
                                                 }
                                                 setFinnhubApiKey(newKey);
@@ -3298,7 +3328,7 @@ const firebaseConfig = {
                                             onBlur={(e) => {
                                                 const key = e.target.value.trim();
                                                 if (key && !validateApiKey(key, 'finnhub')) {
-                                                    alert('Invalid Finnhub API key format. Please check your key.');
+                                                    showBrandedNotice('Invalid Finnhub API key format. Please check your key.');
                                                 }
                                             }}
                                             placeholder="Finnhub API Key"
@@ -3348,7 +3378,7 @@ const firebaseConfig = {
                                             onChange={(e) => {
                                                 const newKey = e.target.value.trim();
                                                 if (newKey.length > MAX_API_KEY_LENGTH) {
-                                                    alert(`API key cannot exceed ${MAX_API_KEY_LENGTH} characters.`);
+                                                    showBrandedNotice(`API key cannot exceed ${MAX_API_KEY_LENGTH} characters.`);
                                                     return;
                                                 }
                                                 setMarketauxApiKey(newKey);
@@ -3356,7 +3386,7 @@ const firebaseConfig = {
                                             onBlur={(e) => {
                                                 const key = e.target.value.trim();
                                                 if (key && !validateApiKey(key, 'marketaux')) {
-                                                    alert('Invalid MarketAux API key format. Please check your key.');
+                                                    showBrandedNotice('Invalid MarketAux API key format. Please check your key.');
                                                 }
                                             }}
                                             placeholder="MarketAux API Key"
@@ -3668,6 +3698,7 @@ const firebaseConfig = {
                                                     updateNoteShares={updateNoteShares}
                                                     sharesPrivacyMode={sharesPrivacyMode}
                                                     setExpandedNote={setExpandedNote}
+                                                    showBrandedNotice={showBrandedNotice}
                                                     sanitizeContent={sanitizeContent}
                                                     validateContent={validateContent}
                                                     MAX_CONTENT_LENGTH={MAX_CONTENT_LENGTH}
@@ -3704,6 +3735,7 @@ const firebaseConfig = {
                                             updateNoteShares={updateNoteShares}
                                             sharesPrivacyMode={sharesPrivacyMode}
                                             setExpandedNote={setExpandedNote}
+                                            showBrandedNotice={showBrandedNotice}
                                             sanitizeContent={sanitizeContent}
                                             validateContent={validateContent}
                                             MAX_CONTENT_LENGTH={MAX_CONTENT_LENGTH}
