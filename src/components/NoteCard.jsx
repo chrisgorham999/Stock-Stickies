@@ -19,6 +19,7 @@ export default function NoteCard({
     updateNoteShares,
     sharesPrivacyMode,
     setExpandedNote,
+    showBrandedNotice,
 
     // validation
     sanitizeContent,
@@ -111,7 +112,7 @@ export default function NoteCard({
                 onChange={(e) => {
                     const newText = sanitizeContent(e.target.value);
                     if (!validateContent(newText)) {
-                        alert(`Note content cannot exceed ${MAX_CONTENT_LENGTH} characters.`);
+                        showBrandedNotice(`Note content cannot exceed ${MAX_CONTENT_LENGTH} characters.`);
                         return;
                     }
                     setNotes(notes.map(n => n.id === note.id ? { ...n, text: newText } : n));
